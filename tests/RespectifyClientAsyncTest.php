@@ -54,26 +54,32 @@ class RespectifyClientAsyncTest extends TestCase {
     }
 
     public function testInitTopicGivingTextMissingArticleId() {
-        $this->expectException(JsonDecodingException::class);
-
+        $this->expectException(\Respectify\Exceptions\JsonDecodingException::class);
+    
         $responseMock = m::mock(ResponseInterface::class);
         $responseMock->shouldReceive('getStatusCode')->andReturn(200);
         $responseMock->shouldReceive('getBody')->andReturn(json_encode([])); // Mock empty JSON, so missing article_id
-
+    
         $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
-
+    
         $promise = $this->client->initTopicFromText('Sample text');
+        $caughtException = null;
         $promise->then(
             function ($articleId) {
                 // This should not be called
                 $this->fail('Expected exception not thrown');
             },
-            function ($e) {
-                throw $e;
+            function ($e) use (&$caughtException) {
+                $caughtException = $e;
             }
         );
-
+    
         $this->client->run();
+
+        // This brings the exception out of the async 'promise chain' so that PHPUnit can catch it
+        if ($caughtException) {
+            throw $caughtException;
+        }
     }
 
     // public function testInitTopicFromTextBadRequest() {
