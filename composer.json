@@ -9,7 +9,8 @@
     "license": "MPL-2.0",
     "autoload": {
         "psr-4": {
-            "Respectify\\RespectifyPhp\\": "src/"
+            "Respectify\\": "src/",
+            "Tests\\": "tests/"
         }
     },
     "authors": [

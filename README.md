@@ -9,9 +9,13 @@ $ brew install composer
 ```
 
 If you want to run unit tests:
-
 ```bash
 $ composer require --dev phpunit/phpunit mockery/mockery
+```
+
+To refresh autoloaded types:
+```
+$ composer dump-autoload
 ```
 
 
