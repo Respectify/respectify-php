@@ -13,7 +13,7 @@ If you want to run unit tests:
 $ composer require --dev phpunit/phpunit mockery/mockery
 ```
 
-To refresh autoloaded types:
+To refresh autoloaded types (eg solve odd issues where a clearly existing type is not found):
 ```
 $ composer dump-autoload
 ```
