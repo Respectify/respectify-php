@@ -1,5 +1,7 @@
 <?php
 
+namespace Tests;
+
 use PHPUnit\Framework\TestCase;
 use Mockery as m;
 use Respectify\RespectifyClientAsync;
@@ -15,7 +17,7 @@ use Psr\Http\Message\ResponseInterface;
 use React\Promise\PromiseInterface;
 use function React\Promise\resolve;
 
-class RespectifyClientAsyncTests extends TestCase {
+class RespectifyClientAsyncTest extends TestCase {
     private $client;
     private $browserMock;
     private $loop;
