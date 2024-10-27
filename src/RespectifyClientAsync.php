@@ -74,6 +74,14 @@ class RespectifyClientAsync {
         }
     }
 
+    /**
+     * Initialize a Respectify topic with the given data. This internal method is used by the public methods.
+     *
+     * @param array $data The data to initialize the topic.
+     * @return PromiseInterface A promise that resolves to the article ID as a UUID string.
+     * @throws JsonDecodingException
+     * @throws RespectifyException
+     */
     private function initTopic($data): PromiseInterface {
         return $this->client->post('https://app.respectify.org/v0.2/inittopic', [
             'headers' => $this->getHeaders(),
@@ -101,6 +109,7 @@ class RespectifyClientAsync {
      *
      * @param string $text
      * @return \React\Promise\PromiseInterface<string>
+     * @throws BadRequestException
      * @throws RespectifyException
      */
     public function initTopicFromText($text): PromiseInterface {
@@ -118,6 +127,7 @@ class RespectifyClientAsync {
      *
      * @param string $text
      * @return \React\Promise\PromiseInterface<string>
+     * @throws BadRequestException
      * @throws RespectifyException
      */
     public function initTopicFromUrl($url): PromiseInterface {
@@ -132,6 +142,8 @@ class RespectifyClientAsync {
      *
      * @param array $data
      * @return \React\Promise\PromiseInterface<CommentScore>
+     * @throws RespectifyException
+     * @throws JsonDecodingException
      * @throws RespectifyException
      */
     public function evaluateComment($data): PromiseInterface {
