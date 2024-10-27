@@ -4,6 +4,7 @@ namespace Respectify;
 
 use React\Http\Browser;
 use React\EventLoop\Factory;
+use React\Promise\PromiseInterface;
 use Psr\Http\Message\ResponseInterface;
 use Respectify\Exceptions\BadRequestException;
 use Respectify\Exceptions\UnauthorizedException;
@@ -34,7 +35,7 @@ class CommentScore {
     }
 }
 
-class RespectifyClient {
+class RespectifyClientAsync {
     private $client;
     private $loop;
     private $email;
@@ -68,7 +69,7 @@ class RespectifyClient {
         }
     }
 
-    private function initTopic($data) {
+    private function initTopic($data): PromiseInterface {
         return $this->client->post('https://app.respectify.org/v0.2/inittopic', [
             'headers' => $this->getHeaders(),
             'body' => http_build_query($data)
@@ -79,7 +80,7 @@ class RespectifyClient {
                     if (isset($responseData['article_id'])) {
                         return $responseData['article_id'];
                     } else {
-                        throw new ArticleIdNotFoundException('Error: article_id not found in the JSON response: ' . $response->getBody());
+                        throw new JsonDecodingException('Error: article_id not found in the JSON response: ' . $response->getBody());
                     }
                 } catch (\Exception $e) {
                     throw new JsonDecodingException('Error decoding JSON response: ' . $e->getMessage() . ' from response: ' . $response->getBody());
@@ -90,28 +91,45 @@ class RespectifyClient {
         });
     }
 
-/**
- * Initialize a topic from text.
- *
- * @param string $text
- * @return \React\Promise\PromiseInterface<string>
- * @throws RespectifyException
- */
-    public function initTopicFromText($text) {
+    /**
+     * Initialize a Respectify topic, using plain text or Markdown.
+     *
+     * @param string $text
+     * @return \React\Promise\PromiseInterface<string>
+     * @throws RespectifyException
+     */
+    public function initTopicFromText($text): PromiseInterface {
         if (empty($text)) {
             throw new BadRequestException('Text must be provided');
         }
         return $this->initTopic(['text' => $text]);
     }
 
-    public function initTopicFromUrl($url) {
+
+   /**
+     * Initialize a Respectify topic with the contents of a URL.
+     * This must be publicly accessible.
+     * The URL can point to any text, Markdown, HTML, or PDF file.
+     *
+     * @param string $text
+     * @return \React\Promise\PromiseInterface<string>
+     * @throws RespectifyException
+     */
+    public function initTopicFromUrl($url): PromiseInterface {
         if (empty($url)) {
             throw new BadRequestException('URL must be provided');
         }
         return $this->initTopic(['url' => $url]);
     }
 
-    public function evaluateComment($data) {
+    /**
+     * Evaluate a comment.
+     *
+     * @param array $data
+     * @return \React\Promise\PromiseInterface<CommentScore>
+     * @throws RespectifyException
+     */
+    public function evaluateComment($data): PromiseInterface {
         return $this->client->post('https://app.respectify.org/v0.2/commentscore', [
             'headers' => $this->getHeaders(),
             'body' => http_build_query($data)
