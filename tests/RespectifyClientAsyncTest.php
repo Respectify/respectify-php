@@ -82,138 +82,199 @@ class RespectifyClientAsyncTest extends TestCase {
         }
     }
 
-    // public function testInitTopicFromTextBadRequest() {
-    //     $this->expectException(BadRequestException::class);
+    public function testInitTopicFromTextBadRequest() {
+        $this->expectException(\Respectify\Exceptions\BadRequestException::class);
+    
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(400);
+        $responseMock->shouldReceive('getReasonPhrase')->andReturn('Bad Request');
+    
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+    
+        $promise = $this->client->initTopicFromText('Sample text');
+        $caughtException = null;
+    
+        $promise->then(
+            function ($articleId) {
+                // This should not be called
+                $this->fail('Expected exception not thrown');
+            },
+            function ($e) use (&$caughtException) {
+                $caughtException = $e;
+            }
+        );
+    
+        $this->client->run();
+    
+        // This brings the exception out of the async 'promise chain' so that PHPUnit can catch it
+        if ($caughtException) {
+            throw $caughtException;
+        }
+    }
 
-    //     $responseMock = m::mock(ResponseInterface::class);
-    //     $responseMock->shouldReceive('getStatusCode')->andReturn(400);
-    //     $responseMock->shouldReceive('getReasonPhrase')->andReturn('Bad Request');
+    public function testInitTopicFromUrlBadRequest() {
+        $this->expectException(\Respectify\Exceptions\BadRequestException::class);
+    
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(400);
+        $responseMock->shouldReceive('getReasonPhrase')->andReturn('Bad Request');
+    
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+    
+        $promise = $this->client->initTopicFromUrl('https://example.com');
+        $caughtException = null;
+    
+        $promise->then(
+            function ($articleId) {
+                // This should not be called
+                $this->fail('Expected exception not thrown');
+            },
+            function ($e) use (&$caughtException) {
+                $caughtException = $e;
+            }
+        );
+    
+        $this->client->run();
+    
+        if ($caughtException) {
+            throw $caughtException;
+        }
+    }
 
-    //     $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+    public function testInitTopicFromUrlSuccess() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode(['article_id' => '1234']));
 
-    //     $promise = $this->client->initTopicFromText('Sample text');
-    //     $promise->otherwise(function ($e) {
-    //         throw $e;
-    //     });
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
 
-    //     $this->client->run();
-    // }
+        $promise = $this->client->initTopicFromUrl('https://example.com');
+        $promise->then(function ($articleId) {
+            $this->assertEquals('1234', $articleId);
+        });
 
-    // public function testInitTopicFromUrlSuccess() {
-    //     $responseMock = m::mock(ResponseInterface::class);
-    //     $responseMock->shouldReceive('getStatusCode')->andReturn(200);
-    //     $responseMock->shouldReceive('getBody')->andReturn(json_encode(['article_id' => '1234']));
+        $this->client->run();
+    }
 
-    //     $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+    public function testEvaluateCommentSuccess() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'logical_fallacies' => [],
+            'objectionable_phrases' => [],
+            'negative_tone_phrases' => [],
+            'appears_low_effort' => false,
+            'is_spam' => false,
+            'overall_score' => 5
+        ]));
 
-    //     $promise = $this->client->initTopicFromUrl('https://example.com');
-    //     $promise->then(function ($articleId) {
-    //         $this->assertEquals('1234', $articleId);
-    //     });
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
 
-    //     $this->client->run();
-    // }
+        $promise = $this->client->evaluateComment([
+            'article_context_id' => '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
+            'comment' => 'This is a test comment'
+        ]);
+        $promise->then(function ($commentScore) {
+            $this->assertInstanceOf(CommentScore::class, $commentScore);
+            $this->assertEquals(5, $commentScore->overallScore);
+        });
 
-    // public function testInitTopicFromUrlBadRequest() {
-    //     $this->expectException(BadRequestException::class);
+        $this->client->run();
+    }
 
-    //     $responseMock = m::mock(ResponseInterface::class);
-    //     $responseMock->shouldReceive('getStatusCode')->andReturn(400);
-    //     $responseMock->shouldReceive('getReasonPhrase')->andReturn('Bad Request');
+    public function testEvaluateCommentBadRequest() {
+        $this->expectException(\Respectify\Exceptions\BadRequestException::class);
 
-    //     $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(400);
+        $responseMock->shouldReceive('getReasonPhrase')->andReturn('Bad Request');
 
-    //     $promise = $this->client->initTopicFromUrl('https://example.com');
-    //     $promise->otherwise(function ($e) {
-    //         throw $e;
-    //     });
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
 
-    //     $this->client->run();
-    // }
+        $promise = $this->client->evaluateComment([
+            'article_context_id' => '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
+            'comment' => 'This is a test comment'
+        ]);
+        $caughtException = null;
 
-    // public function testEvaluateCommentSuccess() {
-    //     $responseMock = m::mock(ResponseInterface::class);
-    //     $responseMock->shouldReceive('getStatusCode')->andReturn(200);
-    //     $responseMock->shouldReceive('getBody')->andReturn(json_encode([
-    //         'logical_fallacies' => [],
-    //         'objectionable_phrases' => [],
-    //         'negative_tone_phrases' => [],
-    //         'appears_low_effort' => false,
-    //         'is_spam' => false,
-    //         'overall_score' => 5
-    //     ]));
+        $promise->then(
+            function ($commentScore) {
+                // This should not be called
+                $this->fail('Expected exception not thrown');
+            },
+            function ($e) use (&$caughtException) {
+                $caughtException = $e;
+            }
+        );
 
-    //     $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+        $this->client->run();
 
-    //     $promise = $this->client->evaluateComment([
-    //         'article_context_id' => '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
-    //         'comment' => 'This is a test comment'
-    //     ]);
-    //     $promise->then(function ($commentScore) {
-    //         $this->assertInstanceOf(CommentScore::class, $commentScore);
-    //         $this->assertEquals(5, $commentScore->overallScore);
-    //     });
+        if ($caughtException) {
+            throw $caughtException;
+        }
+    }
 
-    //     $this->client->run();
-    // }
+    public function testEvaluateCommentUnauthorized() {
+        $this->expectException(\Respectify\Exceptions\UnauthorizedException::class);
+    
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(401);
+        $responseMock->shouldReceive('getReasonPhrase')->andReturn('Unauthorized');
+    
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+    
+        $promise = $this->client->evaluateComment([
+            'article_context_id' => '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
+            'comment' => 'This is a test comment'
+        ]);
+        $caughtException = null;
+    
+        $promise->then(
+            function ($commentScore) {
+                // This should not be called
+                $this->fail('Expected exception not thrown');
+            },
+            function ($e) use (&$caughtException) {
+                $caughtException = $e;
+            }
+        );
+    
+        $this->client->run();
+    
+        if ($caughtException) {
+            throw $caughtException;
+        }
+    }
 
-    // public function testEvaluateCommentBadRequest() {
-    //     $this->expectException(BadRequestException::class);
+    public function testEvaluateCommentUnsupportedMediaType() {
+        $this->expectException(\Respectify\Exceptions\UnsupportedMediaTypeException::class);
 
-    //     $responseMock = m::mock(ResponseInterface::class);
-    //     $responseMock->shouldReceive('getStatusCode')->andReturn(400);
-    //     $responseMock->shouldReceive('getReasonPhrase')->andReturn('Bad Request');
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(415);
+        $responseMock->shouldReceive('getReasonPhrase')->andReturn('Unsupported Media Type');
 
-    //     $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
 
-    //     $promise = $this->client->evaluateComment([
-    //         'article_context_id' => '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
-    //         'comment' => 'This is a test comment'
-    //     ]);
-    //     $promise->otherwise(function ($e) {
-    //         throw $e;
-    //     });
+        $promise = $this->client->evaluateComment([
+            'article_context_id' => '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
+            'comment' => 'This is a test comment'
+        ]);
+        $caughtException = null;
 
-    //     $this->client->run();
-    // }
+        $promise->then(
+            function ($commentScore) {
+                // This should not be called
+                $this->fail('Expected exception not thrown');
+            },
+            function ($e) use (&$caughtException) {
+                $caughtException = $e;
+            }
+        );
 
-    // public function testEvaluateCommentUnauthorized() {
-    //     $this->expectException(UnauthorizedException::class);
+        $this->client->run();
 
-    //     $responseMock = m::mock(ResponseInterface::class);
-    //     $responseMock->shouldReceive('getStatusCode')->andReturn(401);
-    //     $responseMock->shouldReceive('getReasonPhrase')->andReturn('Unauthorized');
-
-    //     $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
-
-    //     $promise = $this->client->evaluateComment([
-    //         'article_context_id' => '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
-    //         'comment' => 'This is a test comment'
-    //     ]);
-    //     $promise->otherwise(function ($e) {
-    //         throw $e;
-    //     });
-
-    //     $this->client->run();
-    // }
-
-    // public function testEvaluateCommentUnsupportedMediaType() {
-    //     $this->expectException(UnsupportedMediaTypeException::class);
-
-    //     $responseMock = m::mock(ResponseInterface::class);
-    //     $responseMock->shouldReceive('getStatusCode')->andReturn(415);
-    //     $responseMock->shouldReceive('getReasonPhrase')->andReturn('Unsupported Media Type');
-
-    //     $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
-
-    //     $promise = $this->client->evaluateComment([
-    //         'article_context_id' => '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
-    //         'comment' => 'This is a test comment'
-    //     ]);
-    //     $promise->otherwise(function ($e) {
-    //         throw $e;
-    //     });
-
-    //     $this->client->run();
-    // }
+        if ($caughtException) {
+            throw $caughtException;
+        }
+    }
 }
