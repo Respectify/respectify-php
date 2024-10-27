@@ -3,7 +3,7 @@
 namespace Respectify;
 
 use React\Http\Browser;
-use React\EventLoop\Factory;
+use React\EventLoop\Loop;
 use React\Promise\PromiseInterface;
 use Psr\Http\Message\ResponseInterface;
 use Respectify\Exceptions\BadRequestException;
@@ -14,8 +14,9 @@ use Respectify\Exceptions\RespectifyException;
 
 
 /**
- * Class RespectifyClient
+ * Class CommentScore
  * @package Respectify
+ * Represents the results of a comment evaluation by Respectify, and contains info on various aspects.
  */
 class CommentScore {
     public $logicalFallacies;
@@ -35,6 +36,10 @@ class CommentScore {
     }
 }
 
+/**
+ * Class RespectifyClientAsync
+ * @package Respectify
+ */
 class RespectifyClientAsync {
     private $client;
     private $loop;
@@ -42,7 +47,7 @@ class RespectifyClientAsync {
     private $apiKey;
 
     public function __construct($email, $apiKey) {
-        $this->loop = Factory::create();
+        $this->loop = Loop::get();
         $this->client = new Browser($this->loop);
         $this->email = $email;
         $this->apiKey = $apiKey;
