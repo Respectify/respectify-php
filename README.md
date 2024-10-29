@@ -33,6 +33,10 @@ $ phpdoc --directory=src --target=docs --template="vendor/saggre/phpdocumentor-m
 
 This runs phpdocumentor as a Docker image, aliased to phpdoc. Looking at there page there is no simpler installation method, certainly not via `compose`. There's some other (yet another?) package manager called `phive`.
 
+Customised template: to get the Home.md file containing what we want we need to customuse the Markdown template.
+That is checked in to phpdocumentor-markdown-customised (it's a modified version of MIT-licensed https://github.com/Saggre/phpDocumentor-markdown)
+
+$ phpdoc --directory=src --target=docs --template="phpdocumentor-markdown-customised/themes/markdown" --title="Respectify PHP Library"
 
 
 
