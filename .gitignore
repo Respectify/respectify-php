@@ -3,3 +3,5 @@
 Searching
 .phpdoc
 build/cache
+build
+docs
