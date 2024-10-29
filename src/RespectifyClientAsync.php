@@ -15,7 +15,9 @@ use Respectify\Exceptions\RespectifyException;
 /**
  * Class LogicalFallacy
  * @package Respectify
+ * The CommentScore class holds an array of logical fallacies. Each one is an instance of this class.
  * Represents a logical fallacy identified in a comment. For example, "ad hominem".
+ * @see CommentScore
  */
 class LogicalFallacy {
     /**
@@ -57,7 +59,9 @@ class LogicalFallacy {
 /**
  * Class ObjectionablePhrase
  * @package Respectify
+ * The CommentScore class holds an array of objectionable phrases. Each one is an instance of this class.
  * Represents an objectionable phrase identified in a comment. This is a potentially rude, offensive, etc term or phrase.
+ * @see CommentScore
  */
 class ObjectionablePhrase {
     /**
@@ -92,9 +96,11 @@ class ObjectionablePhrase {
 /**
  * Class NegativeTonePhrase
  * @package Respectify
+ * The CommentScore class holds an array of negative tone phrases. Each one is an instance of this class.
  * Represents phrases that may not contribute to the health of a conversation, due to a negative tone.
  * This is not contradicting someone or expressing a different viewpoint: it is a way of speaking that
  * could lead to a less constructive conversation.
+ * @see CommentScore
  */
 class NegativeTonePhrase {
     /**
@@ -130,6 +136,11 @@ class NegativeTonePhrase {
  * Class CommentScore
  * @package Respectify
  * Represents the results of a comment evaluation by Respectify, and contains info on various aspects.
+ * This includes if it's spam, low effort, and an overall quality evaluation, plus more detailed evaluation
+ * of logical fallacies, objectionable phrases, and negative tone.
+ * @see LogicalFallacy
+ * @see ObjectionablePhrase
+ * @see NegativeTonePhrase
  */
 class CommentScore {
 /**
