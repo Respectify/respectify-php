@@ -7,11 +7,11 @@
     <transformations>
         <transformation writer="twig" source="index.md.twig" artifact="Home.md"/>
         <transformation writer="twig" query="indexes.classes" source="class.md.twig"
-                        artifact="classes/{{FullyQualifiedStructuralElementName}}.md"/>
+                        artifact="Types/{{FullyQualifiedStructuralElementName}}.md"/>
         <transformation writer="twig" query="indexes.traits" source="trait.md.twig"
-                        artifact="classes/{{FullyQualifiedStructuralElementName}}.md"/>
+                        artifact="Types/{{FullyQualifiedStructuralElementName}}.md"/>
         <transformation writer="twig" query="indexes.interfaces" source="interface.md.twig"
-                        artifact="classes/{{FullyQualifiedStructuralElementName}}.md"/>
+                        artifact="Types/{{FullyQualifiedStructuralElementName}}.md"/>
     </transformations>
     <parameters>
         <parameter key="twig-debug">true</parameter>
