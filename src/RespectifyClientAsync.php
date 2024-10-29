@@ -13,22 +13,82 @@ use Respectify\Exceptions\JsonDecodingException;
 use Respectify\Exceptions\RespectifyException;
 
 /**
+ * Class LogicalFallacy
+ * @package Respectify
+ * Represents a logical fallacy identified in a comment.
+ */
+class LogicalFallacy {
+    public string $fallacyName;
+    public string $quotedLogicalFallacyExample;
+    public string $explanationAndSuggestions;
+    public string $suggestedRewrite;
+
+    public function __construct(array $data) {
+        $this->fallacyName = $data['fallacy_name'] ?? '';
+        $this->quotedLogicalFallacyExample = $data['quoted_logical_fallacy_example'] ?? '';
+        $this->explanationAndSuggestions = $data['explanation_and_suggestions'] ?? '';
+        $this->suggestedRewrite = $data['suggested_rewrite'] ?? '';
+    }
+}
+
+/**
+ * Class ObjectionablePhrase
+ * @package Respectify
+ * Represents an objectionable phrase identified in a comment.
+ */
+class ObjectionablePhrase {
+    public string $quotedObjectionablePhrase;
+    public string $explanation;
+    public string $suggestedRewrite;
+
+    public function __construct(array $data) {
+        $this->quotedObjectionablePhrase = $data['quoted_objectionable_phrase'] ?? '';
+        $this->explanation = $data['explanation'] ?? '';
+        $this->suggestedRewrite = $data['suggested_rewrite'] ?? '';
+    }
+}
+
+/**
+ * Class NegativeTonePhrase
+ * @package Respectify
+ * Represents a negative tone phrase identified in a comment.
+ */
+class NegativeTonePhrase {
+    public string $quotedNegativeTonePhrase;
+    public string $explanation;
+    public string $suggestedRewrite;
+
+    public function __construct(array $data) {
+        $this->quotedNegativeTonePhrase = $data['quoted_negative_tone_phrase'] ?? '';
+        $this->explanation = $data['explanation'] ?? '';
+        $this->suggestedRewrite = $data['suggested_rewrite'] ?? '';
+    }
+}
+
+/**
  * Class CommentScore
  * @package Respectify
  * Represents the results of a comment evaluation by Respectify, and contains info on various aspects.
  */
 class CommentScore {
-    public $logicalFallacies;
-    public $objectionablePhrases;
-    public $negativeTonePhrases;
-    public $appearsLowEffort;
-    public $isSpam;
-    public $overallScore;
+    /** @var LogicalFallacy[] */
+    public array $logicalFallacies;
+    /** @var ObjectionablePhrase[] */
+    public array $objectionablePhrases;
+    /** @var NegativeTonePhrase[] */
+    public array $negativeTonePhrases;
+    public bool $appearsLowEffort;
+    public bool $isSpam;
+    public int $overallScore;
 
+    /**
+     * CommentScore constructor.
+     * @param array $data The data to initialize the comment score.
+     */
     public function __construct(array $data) {
-        $this->logicalFallacies = $data['logical_fallacies'] ?? [];
-        $this->objectionablePhrases = $data['objectionable_phrases'] ?? [];
-        $this->negativeTonePhrases = $data['negative_tone_phrases'] ?? [];
+        $this->logicalFallacies = array_map(fn($item) => new LogicalFallacy($item), $data['logical_fallacies'] ?? []);
+        $this->objectionablePhrases = array_map(fn($item) => new ObjectionablePhrase($item), $data['objectionable_phrases'] ?? []);
+        $this->negativeTonePhrases = array_map(fn($item) => new NegativeTonePhrase($item), $data['negative_tone_phrases'] ?? []);
         $this->appearsLowEffort = $data['appears_low_effort'] ?? false;
         $this->isSpam = $data['is_spam'] ?? false;
         $this->overallScore = $data['overall_score'] ?? 0;
