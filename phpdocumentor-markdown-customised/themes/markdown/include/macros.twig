@@ -33,7 +33,7 @@
 {{ relPath | join('/') }}{% endmacro %}
 
 {#
-  Get full md link for a node or for a namespace without /classes directory
+  Get full md link for a node or for a namespace without /Types directory
   @param $nodeOrNamespace object|string The node to get the link for or a PHP class namespace string
 #}
 {% macro mdNodePath(nodeOrNamespace) %}
@@ -44,7 +44,7 @@
   @param $nodeOrNamespace object|string The node to get the link for or a PHP class namespace string
 #}
 {% macro mdClassPath(nodeOrNamespace) %}
-{{ 'classes' ~ _self.mdNodePath(nodeOrNamespace) | trim}}{% endmacro %}
+{{ 'Types' ~ _self.mdNodePath(nodeOrNamespace) | trim}}{% endmacro %}
 
 {#
   Create a relative md link to a class
