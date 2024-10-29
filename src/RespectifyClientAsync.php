@@ -12,7 +12,6 @@ use Respectify\Exceptions\UnsupportedMediaTypeException;
 use Respectify\Exceptions\JsonDecodingException;
 use Respectify\Exceptions\RespectifyException;
 
-
 /**
  * Class CommentScore
  * @package Respectify
@@ -26,7 +25,7 @@ class CommentScore {
     public $isSpam;
     public $overallScore;
 
-    public function __construct($data) {
+    public function __construct(array $data) {
         $this->logicalFallacies = $data['logical_fallacies'] ?? [];
         $this->objectionablePhrases = $data['objectionable_phrases'] ?? [];
         $this->negativeTonePhrases = $data['negative_tone_phrases'] ?? [];
@@ -41,19 +40,28 @@ class CommentScore {
  * @package Respectify
  */
 class RespectifyClientAsync {
-    private $client;
+    private Browser $client;
     private $loop;
-    private $email;
-    private $apiKey;
+    private string $email;
+    private string $apiKey;
 
-    public function __construct($email, $apiKey) {
+    /**
+     * RespectifyClientAsync constructor.
+     * @param string $email An email address.
+     * @param string $apiKey A hex string representing the API key.
+     */
+    public function __construct(string $email, string $apiKey) {
         $this->loop = Loop::get();
         $this->client = new Browser($this->loop);
         $this->email = $email;
         $this->apiKey = $apiKey;
     }
 
-    private function getHeaders() {
+    /**
+     * Get the headers for the API request.
+     * @return array<string, string> An associative array mapping HTTP request header names to header values.
+    */
+    private function getHeaders(): array {
         return [
             'X-User-Email' => $this->email,
             'X-API-Key' => $this->apiKey,
@@ -61,7 +69,15 @@ class RespectifyClientAsync {
         ];
     }
 
-    private function handleError(ResponseInterface $response) {
+    /**
+     * Handle errors from the API response. This always raises an exception.
+     * @param ResponseInterface $response
+     * @throws BadRequestException
+     * @throws UnauthorizedException
+     * @throws UnsupportedMediaTypeException
+     * @throws RespectifyException
+     */
+    private function handleError(ResponseInterface $response): void {
         switch ($response->getStatusCode()) {
             case 400:
                 throw new BadRequestException('Bad Request: ' . $response->getReasonPhrase());
@@ -78,11 +94,11 @@ class RespectifyClientAsync {
      * Initialize a Respectify topic with the given data. This internal method is used by the public methods.
      *
      * @param array $data The data to initialize the topic.
-     * @return PromiseInterface A promise that resolves to the article ID as a UUID string.
+     * @return PromiseInterface<string> A promise that resolves to the article ID as a UUID string.
      * @throws JsonDecodingException
      * @throws RespectifyException
      */
-    private function initTopic($data): PromiseInterface {
+    private function initTopic(array $data): PromiseInterface {
         return $this->client->post('https://app.respectify.org/v0.2/inittopic', [
             'headers' => $this->getHeaders(),
             'body' => http_build_query($data)
@@ -107,30 +123,29 @@ class RespectifyClientAsync {
     /**
      * Initialize a Respectify topic, using plain text or Markdown.
      *
-     * @param string $text
-     * @return \React\Promise\PromiseInterface<string>
+     * @param string $text The text content to initialize the topic.
+     * @return PromiseInterface<string> A promise that resolves to the article ID as a UUID string.
      * @throws BadRequestException
      * @throws RespectifyException
      */
-    public function initTopicFromText($text): PromiseInterface {
+    public function initTopicFromText(string $text): PromiseInterface {
         if (empty($text)) {
             throw new BadRequestException('Text must be provided');
         }
         return $this->initTopic(['text' => $text]);
     }
 
-
-   /**
+    /**
      * Initialize a Respectify topic with the contents of a URL.
      * This must be publicly accessible.
      * The URL can point to any text, Markdown, HTML, or PDF file.
      *
-     * @param string $text
-     * @return \React\Promise\PromiseInterface<string>
+     * @param string $url The URL pointing to the content to initialize the topic.
+     * @return PromiseInterface<string> A promise that resolves to the article ID as a UUID string.
      * @throws BadRequestException
      * @throws RespectifyException
      */
-    public function initTopicFromUrl($url): PromiseInterface {
+    public function initTopicFromUrl(string $url): PromiseInterface {
         if (empty($url)) {
             throw new BadRequestException('URL must be provided');
         }
@@ -141,12 +156,11 @@ class RespectifyClientAsync {
      * Evaluate a comment.
      *
      * @param array $data
-     * @return \React\Promise\PromiseInterface<CommentScore>
+     * @return PromiseInterface<CommentScore>
      * @throws RespectifyException
      * @throws JsonDecodingException
-     * @throws RespectifyException
      */
-    public function evaluateComment($data): PromiseInterface {
+    public function evaluateComment(array $data): PromiseInterface {
         return $this->client->post('https://app.respectify.org/v0.2/commentscore', [
             'headers' => $this->getHeaders(),
             'body' => http_build_query($data)
@@ -164,7 +178,10 @@ class RespectifyClientAsync {
         });
     }
 
-    public function run() {
+    /**
+     * Run the event loop.
+     */
+    public function run(): void {
         $this->loop->run();
     }
 }
