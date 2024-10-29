@@ -59,14 +59,14 @@ class MacroTest extends MacroTestCase
         $name = '\Fully\Qualified\Structural\Element\Name';
 
         $result = $this->getMacroData('mdClassPath', $name);
-        self::assertMacroOutputEquals('classes/Fully/Qualified/Structural/Element/Name.md', $result->getOutput());
+        self::assertMacroOutputEquals('Types/Fully/Qualified/Structural/Element/Name.md', $result->getOutput());
 
         $input = (object)array(
             'FullyQualifiedStructuralElementName' => $name,
         );
 
         $result = $this->getMacroData('mdClassPath', $input);
-        self::assertMacroOutputEquals('classes/Fully/Qualified/Structural/Element/Name.md', $result->getOutput());
+        self::assertMacroOutputEquals('Types/Fully/Qualified/Structural/Element/Name.md', $result->getOutput());
     }
 
     /**
@@ -79,13 +79,13 @@ class MacroTest extends MacroTestCase
         $name = '\Fully\Qualified\Structural\Element\Name';
 
         self::assertMacroOutputEquals(
-            '[`Unknown`](./classes/Fully/Qualified/Structural/Element/Name.md)',
+            '[`Unknown`](./Types/Fully/Qualified/Structural/Element/Name.md)',
             $this->mdClassLink($name)->getOutput()
         );
 
         self::assertMacroOutputEquals(
             '[`ClassName`](Structural/Element/Name.md)',
-            $this->mdClassLink($name, 'classes/Fully/Qualified', 'ClassName')->getOutput()
+            $this->mdClassLink($name, 'Types/Fully/Qualified', 'ClassName')->getOutput()
         );
     }
 }
