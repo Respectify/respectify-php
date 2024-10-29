@@ -15,15 +15,38 @@ use Respectify\Exceptions\RespectifyException;
 /**
  * Class LogicalFallacy
  * @package Respectify
- * Represents a logical fallacy identified in a comment.
+ * Represents a logical fallacy identified in a comment. For example, "ad hominem".
  */
 class LogicalFallacy {
+    /**
+     * @var string The name of the logical fallacy, for example, "straw man".
+     */
     public string $fallacyName;
+
+    /**
+     * @var string The part of the comment that may contain the logical fallacy.
+     */
     public string $quotedLogicalFallacyExample;
+
+    /**
+     * @var string Explanation of why this is an example of this kind of logical fallacy,
+     * and suggestions for improvement to keep the point while not falling into the trap.
+     */
     public string $explanationAndSuggestions;
+
+    /**
+     * @var string Suggested rewrite to avoid the logical fallacy.
+     * This is only rarely present, and only if Respectify is very certain what the intent
+     * is and how to rewrite it.
+     */
     public string $suggestedRewrite;
 
-    public function __construct(array $data) {
+    /**
+     * LogicalFallacy constructor. You should never need to call this. It is created 
+     * internally by the RespectifyClientAsync class when it gets a response.
+     * @param array $data The data to initialize the logical fallacy, coming from JSON.
+     */
+    private function __construct(array $data) {
         $this->fallacyName = $data['fallacy_name'] ?? '';
         $this->quotedLogicalFallacyExample = $data['quoted_logical_fallacy_example'] ?? '';
         $this->explanationAndSuggestions = $data['explanation_and_suggestions'] ?? '';
@@ -34,14 +57,32 @@ class LogicalFallacy {
 /**
  * Class ObjectionablePhrase
  * @package Respectify
- * Represents an objectionable phrase identified in a comment.
+ * Represents an objectionable phrase identified in a comment. This is a potentially rude, offensive, etc term or phrase.
  */
 class ObjectionablePhrase {
+    /**
+     * @var string The part of the comment that may contain an objectionable phrase.
+     */
     public string $quotedObjectionablePhrase;
+
+    /**
+     * @var string Explanation of why the phrase is objectionable.
+     */
     public string $explanation;
+
+    /**
+     * @var string Suggested rewrite to avoid the objectionable phrase.
+     * This is only rarely present, and only if Respectify is very certain what the intent
+     * is and how to rewrite it.
+     */
     public string $suggestedRewrite;
 
-    public function __construct(array $data) {
+    /**
+     * ObjectionablePhrase constructor. You should never need to call this. It is created 
+     * internally by the RespectifyClientAsync class when it gets a response.
+     * @param array $data The data to initialize the objectionable phrase, coming from JSON.
+     */
+    private function __construct(array $data) {
         $this->quotedObjectionablePhrase = $data['quoted_objectionable_phrase'] ?? '';
         $this->explanation = $data['explanation'] ?? '';
         $this->suggestedRewrite = $data['suggested_rewrite'] ?? '';
@@ -51,14 +92,34 @@ class ObjectionablePhrase {
 /**
  * Class NegativeTonePhrase
  * @package Respectify
- * Represents a negative tone phrase identified in a comment.
+ * Represents phrases that may not contribute to the health of a conversation, due to a negative tone.
+ * This is not contradicting someone or expressing a different viewpoint: it is a way of speaking that
+ * could lead to a less constructive conversation.
  */
 class NegativeTonePhrase {
+    /**
+     * @var string A quote from the comment that may contain phrasing that isn't constructive for the conversation.
+     */
     public string $quotedNegativeTonePhrase;
+
+    /**
+     * @var string Explanation of why the quoted text is not healthy for the conversation.
+     */
     public string $explanation;
+
+    /**
+     * @var string Suggested rewrite to avoid the negative tone.
+     * This is only rarely present, and only if Respectify is very certain what the intent
+     * is and how to rewrite it.
+     */
     public string $suggestedRewrite;
 
-    public function __construct(array $data) {
+    /**
+     * NegativeTonePhrase constructor. You should never need to call this. It is created 
+     * internally by the RespectifyClientAsync class when it gets a response.
+     * @param array $data The data to initialize the negative tone phrase, coming from JSON.
+     */
+    private function __construct(array $data) {
         $this->quotedNegativeTonePhrase = $data['quoted_negative_tone_phrase'] ?? '';
         $this->explanation = $data['explanation'] ?? '';
         $this->suggestedRewrite = $data['suggested_rewrite'] ?? '';
@@ -71,21 +132,46 @@ class NegativeTonePhrase {
  * Represents the results of a comment evaluation by Respectify, and contains info on various aspects.
  */
 class CommentScore {
-    /** @var LogicalFallacy[] */
+/**
+     * @var LogicalFallacy[] An array of potential logical fallacies identified in the comment.
+     * @see LogicalFallacy
+     */
     public array $logicalFallacies;
-    /** @var ObjectionablePhrase[] */
+
+    /**
+     * @var ObjectionablePhrase[] An array of potential objectionable phrases identified in the comment.
+     * @see ObjectionablePhrase
+     */
     public array $objectionablePhrases;
-    /** @var NegativeTonePhrase[] */
+
+    /**
+     * @var NegativeTonePhrase[] An array of potential phrases not conducive to healthy conversation identified in the comment.
+     * @see NegativeTonePhrase
+     */
     public array $negativeTonePhrases;
+
+    /**
+     * @var bool Indicates whether the comment appears to be low effort, such as 'me too', 'first', etc.
+     */
     public bool $appearsLowEffort;
+
+    /**
+     * @var bool Indicates whether the comment is likely spam. This is an 'early exit' condition so if true, the
+     * other fields may not be calculated.
+     */
     public bool $isSpam;
+
+    /**
+     * @var int Represents an approximate evaluation of the 'quality' of the comment, in terms of how well it
+     * contributes to a healthy conversation. This is a number from 1 to 5.
+     */
     public int $overallScore;
 
     /**
      * CommentScore constructor.
-     * @param array $data The data to initialize the comment score.
+     * @param array $data The data to initialize the comment score, coming from JSON.
      */
-    public function __construct(array $data) {
+    private function __construct(array $data) {
         $this->logicalFallacies = array_map(fn($item) => new LogicalFallacy($item), $data['logical_fallacies'] ?? []);
         $this->objectionablePhrases = array_map(fn($item) => new ObjectionablePhrase($item), $data['objectionable_phrases'] ?? []);
         $this->negativeTonePhrases = array_map(fn($item) => new NegativeTonePhrase($item), $data['negative_tone_phrases'] ?? []);
