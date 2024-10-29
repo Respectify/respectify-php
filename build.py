@@ -25,7 +25,10 @@ def run_phpdoc():
 
 def copy_docs():
     src_folder = 'docs'
-    dest_folder = 'docs_ex/php'
+    dest_folder = '../discussion-arena-docgen/respectify-docs/docs/PHP'
+
+    dest_folder_full_path = os.path.abspath(dest_folder)    
+    print(f"Resolved destination folder path: {dest_folder_full_path}")
 
     try:
         # Ensure the destination directory exists
