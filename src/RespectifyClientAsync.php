@@ -183,7 +183,8 @@ class CommentScore {
 }
 
 /**
- * Class RespectifyClientAsync
+ * RespectifyClientAsync lets you interact with the Respectify API. It is asynchronous, meaning
+ * you need to run the event loop to get results. This is important for high-performance applications.
  */
 class RespectifyClientAsync {
     private Browser $client;
@@ -192,9 +193,10 @@ class RespectifyClientAsync {
     private string $apiKey;
 
     /**
-     * RespectifyClientAsync constructor.
+     * Create an instance of the async Respectify API client.
      * @param string $email An email address.
      * @param string $apiKey A hex string representing the API key.
+     * @return self
      */
     public function __construct(string $email, string $apiKey) {
         $this->loop = Loop::get();
@@ -240,7 +242,7 @@ class RespectifyClientAsync {
      * Initialize a Respectify topic with the given data. This internal method is used by the public methods.
      *
      * @param array $data The data to initialize the topic.
-     * @return PromiseInterface<string> A promise that resolves to the article ID as a UUID string.
+     * @return PromiseInterface<string> A promise that resolves to the article ID. This is a string containing a UUID. You must keep this (eg, store it in a database) to use in future when evaluating comments written about this topic.
      * @throws JsonDecodingException
      * @throws RespectifyException
      */
@@ -270,7 +272,7 @@ class RespectifyClientAsync {
      * Initialize a Respectify topic, using plain text or Markdown.
      *
      * @param string $text The text content to initialize the topic.
-     * @return PromiseInterface<string> A promise that resolves to the article ID as a UUID string.
+     * @return PromiseInterface<string> A promise that resolves to the article ID. This is a string containing a UUID. You must keep this (eg, store it in a database) to use in future when evaluating comments written about this topic.
      * @throws BadRequestException
      * @throws RespectifyException
      */
@@ -283,8 +285,9 @@ class RespectifyClientAsync {
 
     /**
      * Initialize a Respectify topic with the contents of a URL.
-     * This must be publicly accessible.
-     * The URL can point to any text, Markdown, HTML, or PDF file.
+     * The URL must be publicly accessible.
+     * It can point to any text, Markdown, HTML, or PDF file.
+     *  * Check [the REST API documentation](http://localhost:3000/api/initialize-topic) for a full list of the supported media types.
      *
      * @param string $url The URL pointing to the content to initialize the topic.
      * @return PromiseInterface<string> A promise that resolves to the article ID as a UUID string.
@@ -299,7 +302,7 @@ class RespectifyClientAsync {
     }
 
     /**
-     * Evaluate a comment.
+     * Evaluate a comment. This is Respectify's core API.
      *
      * @param array $data
      * @return PromiseInterface<CommentScore>
@@ -325,7 +328,7 @@ class RespectifyClientAsync {
     }
 
     /**
-     * Run the event loop.
+     * Run the ReactPHP event loop. This allows other tasks to run while waiting for Respectify API responses. 
      */
     public function run(): void {
         $this->loop->run();
