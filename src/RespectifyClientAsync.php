@@ -185,6 +185,10 @@ class CommentScore {
 /**
  * RespectifyClientAsync lets you interact with the Respectify API. It is asynchronous, meaning
  * you need to run the event loop to get results. This is important for high-performance applications.
+ * This uses ReactPHP under the hood, and you must call the `run()` method to run the event loop
+ * in order to resolve the promises that this API returns.
+ * 
+ * See the [Quick Start](/docs/PHP/SampleCode) for sample code.
  */
 class RespectifyClientAsync {
     private Browser $client;
@@ -302,14 +306,30 @@ class RespectifyClientAsync {
     }
 
     /**
-     * Evaluate a comment. This is Respectify's core API.
+     * Evaluate a comment in the context of the article/blog/etc the conversation is about, and optionally the comment it is replying to.
      *
-     * @param array $data
-     * @return PromiseInterface<CommentScore>
+     * This is Respectify's main API and the one you will likely call the most. It returns a [`CommentScore`](CommentScore) object which has a
+     * wide variety of information and assessments.
+     * 
+     * See the [Quick Start](/docs/PHP/SampleCode) for code samples showing how to use this.
+     *
+     * @param string $articleContextId a string containing UUID that identifies the article/blog/etc that this comment was written in the context of. This is the value you get by calling `initTopicFromText` or `initTopicFromUrl`.
+     * @param string $comment The comment text: this is what is evaluated.
+     * @param string|null $replyToComment Provides additional context: the comment to which the one being evaluated is a reply. This is optional.
+     * @return PromiseInterface<CommentScore> A promise that resolves to a [CommentScore](CommentScore) object.
      * @throws RespectifyException
      * @throws JsonDecodingException
      */
-    public function evaluateComment(array $data): PromiseInterface {
+    public function evaluateComment(string $articleContextId, string $comment, ?string $replyToComment = null): PromiseInterface {
+        $data = [
+            'article_context_id' => $articleContextId,
+            'comment' => $comment,
+        ];
+    
+        if ($replyToComment !== null) {
+            $data['reply_to_comment'] = $replyToComment;
+        }
+    
         return $this->client->post('https://app.respectify.org/v0.2/commentscore', [
             'headers' => $this->getHeaders(),
             'body' => http_build_query($data)
@@ -329,6 +349,7 @@ class RespectifyClientAsync {
 
     /**
      * Run the ReactPHP event loop. This allows other tasks to run while waiting for Respectify API responses. 
+     * This **must** be called so that the promises resolve.
      */
     public function run(): void {
         $this->loop->run();
