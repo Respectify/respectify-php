@@ -6,20 +6,113 @@ sidebar_position: 3
 
 # Quickstart
 
-Here are some examples of how to use the Respectify PHP Library:
+This guide will show you how to get started through code samples. It will cover:
 
-```php
-// Example 1
-use Respectify\Library;
+* How to use the `RespectifyClientAsync` class to interact with Respectify
 
-$library = new Library();
-$library->doSomething();
+* Initialise Respectify with a topic: this gives Respectify an understanding of what people are commenting on, and is usually a blog post, article, etc
 
-// Example 2
-use Respectify\AnotherClass;
+* Evaluate a comment, and get Respectify's feedback on how well it contributes to the conversation and in what ways the reply can be improved in order to encourage healthy interaction.
 
-$anotherClass = new AnotherClass();
-$anotherClass->performAction();
+
+## Installation
+
+The PHP library uses ReactPHP.
+
+```bash
+$ composer require react/http react/event-loop react/promise
 ```
 
-Text here.
+You also need a Respectify [API key](https://respectify.org).
+
+## Initialising a Topic
+
+Respectify tries to assess a comment in the context of what it is replying to or is likely about. There is an implicit assumption that all comments are about *something*, and that is usually an article, blog post, or similar. It doesn't have to be: you can just give Respectify some text.
+
+But, you always need to *initialise a topic* so that when evaluating a comment, Respectify knows the 'something' that the conversation is about.
+
+```php
+use Respectify\RespectifyClientAsync;
+use Respectify\Exceptions\BadRequestException;
+
+require 'vendor/autoload.php';
+
+// (Don't hardcode your API key. Use good secrets management.)
+$client = new RespectifyClientAsync('your-email@example.com', 'your-api-key');
+
+$client->initTopicFromUrl('https://en.wikipedia.org/wiki/Delphi')
+    ->then(function ($articleId) {
+        echo "Article ID: $articleId\n";
+    })
+    ->otherwise(function (BadRequestException $e) {
+        echo "Error: " . $e->getMessage() . "\n";
+    });
+
+$client->run();
+```
+
+The URL can point to any publicly accessible document we can parse, including any normal HTML, Markdown, PDF, etc. See [the REST API docs](/api/initialize-topic) for a full list of supported formats.
+
+You can also use `initTopicFromText` and pass a string, which must be plain text or Markdown.
+
+## Evaluating a Comment
+
+Once you have an article ID, which represents Respectify's understanding of a topic, you can evaluate anything someone writes. This is usually a comment (such as a reply to a blog post) but can be anything from any source.
+
+Call the `evaluateComment` method with the article (topic) ID and comment text. You'll get back an assessment of the quality of the comment in terms of how well it contributes to healthy conversation and debate.
+
+* Read [this documentation for a full description](/api/evaluate-a-comment) of what Respectify makes available.
+
+
+```php
+use Respectify\RespectifyClientAsync;
+use Respectify\CommentScore;
+use Respectify\Exceptions\RespectifyException;
+use React\EventLoop\Loop;
+
+require 'vendor/autoload.php';
+
+// (Don't hardcode your API key. Use good secrets management.)
+$client = new RespectifyClientAsync('your-email@example.com', 'your-api-key');
+
+$articleId = 'your-article-id'; // Replace with the actual article ID obtained above
+$comment = 'This is a sample comment, and not a very good one, adds nothing to the conversation.';
+
+$client->evaluateComment($articleId, $comment)
+    ->then(function (CommentScore $commentScore) {
+        echo "Overall Score: " . $commentScore->overallScore . "\n";
+        echo "Is Spam: " . ($commentScore->isSpam ? 'Yes' : 'No') . "\n";
+        echo "Appears Low Effort: " . ($commentScore->appearsLowEffort ? 'Yes' : 'No') . "\n";
+        
+        foreach ($commentScore->logicalFallacies as $fallacy) {
+            echo "Logical Fallacy: " . $fallacy->fallacyName . "\n";
+            echo "Example: " . $fallacy->quotedLogicalFallacyExample . "\n";
+            echo "Explanation: " . $fallacy->explanationAndSuggestions . "\n";
+        }
+
+        foreach ($commentScore->objectionablePhrases as $phrase) {
+            echo "Objectionable Phrase: " . $phrase->quotedObjectionablePhrase . "\n";
+            echo "Explanation: " . $phrase->explanation . "\n";
+        }
+
+        foreach ($commentScore->negativeTonePhrases as $phrase) {
+            echo "Negative Tone Phrase: " . $phrase->quotedNegativeTonePhrase . "\n";
+            echo "Explanation: " . $phrase->explanation . "\n";
+        }
+    })
+    ->otherwise(function (RespectifyException $e) {
+        echo "Error: " . $e->getMessage() . "\n";
+    });
+
+$client->run();
+```
+
+## That's it!
+
+You're good to go! Use Respectify's analysis to see if the comment meets the level of genuine interaction that you want to see in your online site.
+
+We recommend using Respectify's feedback to give commenters an opportunity to improve what they write. And we hope that as your users see Respectify feedback they will learn from it how and why some ways of talking are better than others.
+
+Respectify's ethos is not to censor, but to encourage and teach how to write and interact better. In fact, we hope that encouraging healthy conversation allows interaction with a more diverse range of opinions, through assisting people to interact and understand them. So, we encourage showing Respectify's analysis to your users and providing them a chance to iterate on what they write before it's posted.
+
+
