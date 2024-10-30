@@ -13,8 +13,6 @@ use Respectify\Exceptions\JsonDecodingException;
 use Respectify\Exceptions\RespectifyException;
 
 /**
- * Class LogicalFallacy
- * @package Respectify
  * The CommentScore class holds an array of logical fallacies. Each one is an instance of this class.
  * Represents a logical fallacy identified in a comment. For example, "ad hominem".
  * @see CommentScore The comment score includes an array of logical fallacies.
@@ -57,25 +55,23 @@ class LogicalFallacy {
 }
 
 /**
- * Class ObjectionablePhrase
- * @package Respectify
- * The CommentScore class holds an array of objectionable phrases. Each one is an instance of this class.
  * Represents an objectionable phrase identified in a comment. This is a potentially rude, offensive, etc term or phrase.
+ * The CommentScore class holds an array of objectionable phrases. Each one is an instance of this class.
  * @see CommentScore
  */
 class ObjectionablePhrase {
     /**
-     * @var string The part of the comment that may contain an objectionable phrase.
+     * The part of the comment that may contain an objectionable phrase.
      */
     public string $quotedObjectionablePhrase;
 
     /**
-     * @var string Explanation of why the phrase is objectionable.
+     * Explanation of why the phrase is objectionable.
      */
     public string $explanation;
 
     /**
-     * @var string Suggested rewrite to avoid the objectionable phrase.
+     * Suggested rewrite to avoid the objectionable phrase.
      * This is only rarely present, and only if Respectify is very certain what the intent
      * is and how to rewrite it.
      */
@@ -94,27 +90,26 @@ class ObjectionablePhrase {
 }
 
 /**
- * Class NegativeTonePhrase
- * @package Respectify
- * The CommentScore class holds an array of negative tone phrases. Each one is an instance of this class.
  * Represents phrases that may not contribute to the health of a conversation, due to a negative tone.
  * This is not contradicting someone or expressing a different viewpoint: it is a way of speaking that
  * could lead to a less constructive conversation.
+ * 
+ * The CommentScore class holds an array of negative tone phrases. Each one is an instance of this class.
  * @see CommentScore
  */
 class NegativeTonePhrase {
     /**
-     * @var string A quote from the comment that may contain phrasing that isn't constructive for the conversation.
+     * A quote from the comment that may contain phrasing that isn't constructive for the conversation.
      */
     public string $quotedNegativeTonePhrase;
 
     /**
-     * @var string Explanation of why the quoted text is not healthy for the conversation.
+     *  Explanation of why the quoted text is not healthy for the conversation.
      */
     public string $explanation;
 
     /**
-     * @var string Suggested rewrite to avoid the negative tone.
+     * Suggested rewrite to avoid the negative tone.
      * This is only rarely present, and only if Respectify is very certain what the intent
      * is and how to rewrite it.
      */
@@ -133,47 +128,42 @@ class NegativeTonePhrase {
 }
 
 /**
- * Class CommentScore
- * @package Respectify
  * Represents the results of a comment evaluation by Respectify, and contains info on various aspects.
  * This includes if it's spam, low effort, and an overall quality evaluation, plus more detailed evaluation
  * of logical fallacies, objectionable phrases, and negative tone.
- * @see LogicalFallacy
- * @see ObjectionablePhrase
- * @see NegativeTonePhrase
  */
 class CommentScore {
 /**
-     * @var LogicalFallacy[] An array of potential logical fallacies identified in the comment.
+     * An array of potential logical fallacies identified in the comment.
      * @see LogicalFallacy
      */
     public array $logicalFallacies;
 
     /**
-     * @var ObjectionablePhrase[] An array of potential objectionable phrases identified in the comment.
+     * An array of potential objectionable phrases identified in the comment.
      * @see ObjectionablePhrase
      */
     public array $objectionablePhrases;
 
     /**
-     * @var NegativeTonePhrase[] An array of potential phrases not conducive to healthy conversation identified in the comment.
+     * An array of potential phrases not conducive to healthy conversation identified in the comment.
      * @see NegativeTonePhrase
      */
     public array $negativeTonePhrases;
 
     /**
-     * @var bool Indicates whether the comment appears to be low effort, such as 'me too', 'first', etc.
+     *  Indicates whether the comment appears to be low effort, such as 'me too', 'first', etc.
      */
     public bool $appearsLowEffort;
 
     /**
-     * @var bool Indicates whether the comment is likely spam. This is an 'early exit' condition so if true, the
+     * Indicates whether the comment is likely spam. This is an 'early exit' condition so if true, the
      * other fields may not be calculated.
      */
     public bool $isSpam;
 
     /**
-     * @var int Represents an approximate evaluation of the 'quality' of the comment, in terms of how well it
+     * Represents an approximate evaluation of the 'quality' of the comment, in terms of how well it
      * contributes to a healthy conversation. This is a number from 1 to 5.
      */
     public int $overallScore;
@@ -194,7 +184,6 @@ class CommentScore {
 
 /**
  * Class RespectifyClientAsync
- * @package Respectify
  */
 class RespectifyClientAsync {
     private Browser $client;
