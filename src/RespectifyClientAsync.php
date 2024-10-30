@@ -57,7 +57,7 @@ class LogicalFallacy {
 /**
  * Represents an objectionable phrase identified in a comment. This is a potentially rude, offensive, etc term or phrase.
  * The CommentScore class holds an array of objectionable phrases. Each one is an instance of this class.
- * @see CommentScore
+ * @see CommentScore The comment score includes an array of potential objectionable phrases.
  */
 class ObjectionablePhrase {
     /**
@@ -95,7 +95,7 @@ class ObjectionablePhrase {
  * could lead to a less constructive conversation.
  * 
  * The CommentScore class holds an array of negative tone phrases. Each one is an instance of this class.
- * @see CommentScore
+ * @see CommentScore The comment score includes an array of potential negative tone phrases.
  */
 class NegativeTonePhrase {
     /**
