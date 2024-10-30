@@ -21,23 +21,23 @@ use Respectify\Exceptions\RespectifyException;
  */
 class LogicalFallacy {
     /**
-     * @var string The name of the logical fallacy, for example, "straw man".
+     * The name of the logical fallacy, for example, "straw man".
      */
     public string $fallacyName;
 
     /**
-     * @var string The part of the comment that may contain the logical fallacy.
+     * The part of the comment that may contain the logical fallacy.
      */
     public string $quotedLogicalFallacyExample;
 
     /**
-     * @var string Explanation of why this is an example of this kind of logical fallacy,
+     * Explanation of why this is an example of this kind of logical fallacy,
      * and suggestions for improvement to keep the point while not falling into the trap.
      */
     public string $explanationAndSuggestions;
 
     /**
-     * @var string Suggested rewrite to avoid the logical fallacy.
+     * Suggested rewrite to avoid the logical fallacy.
      * This is only rarely present, and only if Respectify is very certain what the intent
      * is and how to rewrite it.
      */
