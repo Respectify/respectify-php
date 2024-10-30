@@ -17,7 +17,7 @@ use Respectify\Exceptions\RespectifyException;
  * @package Respectify
  * The CommentScore class holds an array of logical fallacies. Each one is an instance of this class.
  * Represents a logical fallacy identified in a comment. For example, "ad hominem".
- * @see CommentScore
+ * @see CommentScore The comment score includes an array of logical fallacies.
  */
 class LogicalFallacy {
     /**
