@@ -148,12 +148,17 @@ class RespectifyClientAsyncTest extends TestCase {
 
         $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
 
+        $assertionCalled = false;
+
         $promise = $this->client->initTopicFromUrl('https://example.com');
-        $promise->then(function ($articleId) {
+        $promise->then(function ($articleId) use (&$assertionCalled) {
             $this->assertEquals('1234', $articleId);
+            $assertionCalled = true;
         });
 
         $this->client->run();
+        
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
     }
 
     public function testEvaluateCommentSuccess() {
@@ -167,19 +172,24 @@ class RespectifyClientAsyncTest extends TestCase {
             'is_spam' => false,
             'overall_score' => 5
         ]));
-
+    
         $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+    
+        $assertionCalled = false;
 
-        $promise = $this->client->evaluateComment([
-            'article_context_id' => '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
-            'comment' => 'This is a test comment'
-        ]);
-        $promise->then(function ($commentScore) {
+        $promise = $this->client->evaluateComment(
+            '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
+            'This is a test comment'
+        );
+        $promise->then(function ($commentScore) use (&$assertionCalled) {
             $this->assertInstanceOf(CommentScore::class, $commentScore);
             $this->assertEquals(5, $commentScore->overallScore);
+            $assertionCalled = true;
         });
-
+    
         $this->client->run();
+    
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
     }
 
     public function testEvaluateCommentBadRequest() {
@@ -191,10 +201,10 @@ class RespectifyClientAsyncTest extends TestCase {
 
         $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
 
-        $promise = $this->client->evaluateComment([
-            'article_context_id' => '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
-            'comment' => 'This is a test comment'
-        ]);
+        $promise = $this->client->evaluateComment(
+            '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
+            'This is a test comment'
+        );
         $caughtException = null;
 
         $promise->then(
@@ -216,19 +226,19 @@ class RespectifyClientAsyncTest extends TestCase {
 
     public function testEvaluateCommentUnauthorized() {
         $this->expectException(\Respectify\Exceptions\UnauthorizedException::class);
-    
+
         $responseMock = m::mock(ResponseInterface::class);
         $responseMock->shouldReceive('getStatusCode')->andReturn(401);
         $responseMock->shouldReceive('getReasonPhrase')->andReturn('Unauthorized');
-    
+
         $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
-    
-        $promise = $this->client->evaluateComment([
-            'article_context_id' => '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
-            'comment' => 'This is a test comment'
-        ]);
+
+        $promise = $this->client->evaluateComment(
+            '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
+            'This is a test comment'
+        );
         $caughtException = null;
-    
+
         $promise->then(
             function ($commentScore) {
                 // This should not be called
@@ -238,9 +248,9 @@ class RespectifyClientAsyncTest extends TestCase {
                 $caughtException = $e;
             }
         );
-    
+
         $this->client->run();
-    
+
         if ($caughtException) {
             throw $caughtException;
         }
@@ -255,10 +265,10 @@ class RespectifyClientAsyncTest extends TestCase {
 
         $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
 
-        $promise = $this->client->evaluateComment([
-            'article_context_id' => '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
-            'comment' => 'This is a test comment'
-        ]);
+        $promise = $this->client->evaluateComment(
+            '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
+            'This is a test comment'
+        );
         $caughtException = null;
 
         $promise->then(
