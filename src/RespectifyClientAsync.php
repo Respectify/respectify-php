@@ -135,19 +135,19 @@ class NegativeTonePhrase {
 class CommentScore {
 /**
      * An array of potential logical fallacies identified in the comment.
-     * @see LogicalFallacy
+     * @see LogicalFallacy each entry in the array is an instance of this class.
      */
     public array $logicalFallacies;
 
     /**
      * An array of potential objectionable phrases identified in the comment.
-     * @see ObjectionablePhrase
+     * @see ObjectionablePhrase each entry in the array is an instance of this class.
      */
     public array $objectionablePhrases;
 
     /**
      * An array of potential phrases not conducive to healthy conversation identified in the comment.
-     * @see NegativeTonePhrase
+     * @see NegativeTonePhrase each entry in the array is an instance of this class.
      */
     public array $negativeTonePhrases;
 
