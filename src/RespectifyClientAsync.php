@@ -43,10 +43,10 @@ class LogicalFallacy {
 
     /**
      * LogicalFallacy constructor. You should never need to call this. It is created 
-     * internally by the RespectifyClientAsync class when it gets a response.
+     * internally by the Respectify client class when it gets a response.
      * @param array $data The data to initialize the logical fallacy, coming from JSON.
      */
-    private function __construct(array $data) {
+    public function __construct(array $data) {
         $this->fallacyName = $data['fallacy_name'] ?? '';
         $this->quotedLogicalFallacyExample = $data['quoted_logical_fallacy_example'] ?? '';
         $this->explanationAndSuggestions = $data['explanation_and_suggestions'] ?? '';
@@ -79,10 +79,10 @@ class ObjectionablePhrase {
 
     /**
      * ObjectionablePhrase constructor. You should never need to call this. It is created 
-     * internally by the RespectifyClientAsync class when it gets a response.
+     * internally by the Respectify client class when it gets a response.
      * @param array $data The data to initialize the objectionable phrase, coming from JSON.
      */
-    private function __construct(array $data) {
+    public function __construct(array $data) {
         $this->quotedObjectionablePhrase = $data['quoted_objectionable_phrase'] ?? '';
         $this->explanation = $data['explanation'] ?? '';
         $this->suggestedRewrite = $data['suggested_rewrite'] ?? '';
@@ -117,10 +117,10 @@ class NegativeTonePhrase {
 
     /**
      * NegativeTonePhrase constructor. You should never need to call this. It is created 
-     * internally by the RespectifyClientAsync class when it gets a response.
+     * internally by the Respectify client class when it gets a response.
      * @param array $data The data to initialize the negative tone phrase, coming from JSON.
      */
-    private function __construct(array $data) {
+    public function __construct(array $data) {
         $this->quotedNegativeTonePhrase = $data['quoted_negative_tone_phrase'] ?? '';
         $this->explanation = $data['explanation'] ?? '';
         $this->suggestedRewrite = $data['suggested_rewrite'] ?? '';
@@ -169,10 +169,11 @@ class CommentScore {
     public int $overallScore;
 
     /**
-     * CommentScore constructor.
+     * CommentScore constructor. You should never need to call this. It is created
+     * internally by the Respectify client class when it gets a response.
      * @param array $data The data to initialize the comment score, coming from JSON.
      */
-    private function __construct(array $data) {
+    public function __construct(array $data) {
         $this->logicalFallacies = array_map(fn($item) => new LogicalFallacy($item), $data['logical_fallacies'] ?? []);
         $this->objectionablePhrases = array_map(fn($item) => new ObjectionablePhrase($item), $data['objectionable_phrases'] ?? []);
         $this->negativeTonePhrases = array_map(fn($item) => new NegativeTonePhrase($item), $data['negative_tone_phrases'] ?? []);
