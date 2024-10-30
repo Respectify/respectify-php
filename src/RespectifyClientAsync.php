@@ -186,7 +186,8 @@ class CommentScore {
 /**
  * RespectifyClientAsync lets you interact with the Respectify API. It is asynchronous, meaning
  * you need to run the event loop to get results. This is important for high-performance applications.
- * This uses ReactPHP under the hood, and you must call the `run()` method to run the event loop
+ * This uses [ReactPHP](https://reactphp.org/) under the hood, and you must call the `run()` method
+ * to [run the event loop](https://reactphp.org/event-loop/) (if it's not already running) *after* you call the API methods
  * in order to resolve the promises that this API returns.
  * 
  * See the [Quick Start](/docs/PHP/SampleCode) for sample code.
@@ -247,7 +248,7 @@ class RespectifyClientAsync {
      * Initialize a Respectify topic with the given data. This internal method is used by the public methods.
      *
      * @param array $data The data to initialize the topic.
-     * @return PromiseInterface<string> A promise that resolves to the article ID. This is a string containing a UUID. You must keep this (eg, store it in a database) to use in future when evaluating comments written about this topic.
+     * @return PromiseInterface<string> A [promise](https://reactphp.org/promise/#promiseinterface) that resolves to the article ID. This is a string containing a UUID. You must keep this (eg, store it in a database) to use in future when evaluating comments written about this topic.
      * @throws JsonDecodingException
      * @throws RespectifyException
      */
@@ -277,7 +278,7 @@ class RespectifyClientAsync {
      * Initialize a Respectify topic, using plain text or Markdown.
      *
      * @param string $text The text content to initialize the topic.
-     * @return PromiseInterface<string> A promise that resolves to the article ID. This is a string containing a UUID. You must keep this (eg, store it in a database) to use in future when evaluating comments written about this topic.
+     * @return PromiseInterface<string> A [promise](https://reactphp.org/promise/#promiseinterface) that resolves to the article ID. This is a string containing a UUID. You must keep this (eg, store it in a database) to use in future when evaluating comments written about this topic.
      * @throws BadRequestException
      * @throws RespectifyException
      */
@@ -295,7 +296,7 @@ class RespectifyClientAsync {
      *  * Check [the REST API documentation](http://localhost:3000/api/initialize-topic) for a full list of the supported media types.
      *
      * @param string $url The URL pointing to the content to initialize the topic.
-     * @return PromiseInterface<string> A promise that resolves to the article ID as a UUID string.
+     * @return PromiseInterface<string> A [promise](https://reactphp.org/promise/#promiseinterface) that resolves to the article ID as a UUID string.
      * @throws BadRequestException
      * @throws RespectifyException
      */
@@ -309,7 +310,8 @@ class RespectifyClientAsync {
     /**
      * Evaluate a comment in the context of the article/blog/etc the conversation is about, and optionally the comment it is replying to.
      *
-     * This is Respectify's main API and the one you will likely call the most. It returns a [`CommentScore`](CommentScore) object which has a
+     * This is Respectify's main API and the one you will likely call the most. It returns
+     * a [promise](https://reactphp.org/promise/#promiseinterface) to a [`CommentScore`](CommentScore) object which has a
      * wide variety of information and assessments.
      * 
      * See the [Quick Start](/docs/PHP/SampleCode) for code samples showing how to use this.
@@ -317,7 +319,7 @@ class RespectifyClientAsync {
      * @param string $articleContextId a string containing UUID that identifies the article/blog/etc that this comment was written in the context of. This is the value you get by calling `initTopicFromText` or `initTopicFromUrl`.
      * @param string $comment The comment text: this is what is evaluated.
      * @param string|null $replyToComment Provides additional context: the comment to which the one being evaluated is a reply. This is optional.
-     * @return PromiseInterface<CommentScore> A promise that resolves to a [CommentScore](CommentScore) object.
+     * @return PromiseInterface<CommentScore> A [promise](https://reactphp.org/promise/#promiseinterface) that resolves to a [CommentScore](CommentScore) object.
      * @throws RespectifyException
      * @throws JsonDecodingException
      */
@@ -349,7 +351,7 @@ class RespectifyClientAsync {
     }
 
     /**
-     * Run the ReactPHP event loop. This allows other tasks to run while waiting for Respectify API responses. 
+     * Run the [ReactPHP event loop](https://reactphp.org/event-loop/). This allows other tasks to run while waiting for Respectify API responses. 
      * This **must** be called so that the promises resolve.
      */
     public function run(): void {
