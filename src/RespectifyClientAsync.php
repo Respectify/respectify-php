@@ -293,7 +293,7 @@ class RespectifyClientAsync {
      * Initialize a Respectify topic with the contents of a URL.
      * The URL must be publicly accessible.
      * It can point to any text, Markdown, HTML, or PDF file.
-     *  * Check [the REST API documentation](http://localhost:3000/api/initialize-topic) for a full list of the supported media types.
+     *  * Check [the REST API documentation](/api/initialize-topic) for a full list of the supported media types.
      *
      * @param string $url The URL pointing to the content to initialize the topic.
      * @return PromiseInterface<string> A [promise](https://reactphp.org/promise/#promiseinterface) that resolves to the article ID as a UUID string.
