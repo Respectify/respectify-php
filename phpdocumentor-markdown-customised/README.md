@@ -1,3 +1,14 @@
+# Modified!
+
+This is a modified version of https://github.com/Saggre/phpDocumentor-markdown .
+
+The original was MIT-licensed and so is this.
+
+This modified version is used to generate Markdown from phpdoc, for the Respectify Docs site. It includes changes to make @see See Also links work, and some formatting changes in the output.
+
+Original readme follows:
+
+
 # phpDocumentor - Generate GitHub/GitLab-Ready Markdown Documentation
 
 ## Markdown template for phpDocumentor 3.x
