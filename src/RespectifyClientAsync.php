@@ -351,6 +351,37 @@ class RespectifyClientAsync {
     }
 
     /**
+     * Check user credentials and return account status information if there is any issue with the account.
+     * This can only return info about the account whose correct credentials were provided when creating the RespectifyClientAsync instance.
+     *
+     * @return PromiseInterface<array> A promise that resolves to an array containing a boolean success flag and a string with account status information.
+     * @throws RespectifyException
+     * @throws JsonDecodingException
+     */
+    public function checkUserCredentials(): PromiseInterface {
+        return $this->client->get('https://app.respectify.org/v0.2/usercheck', [
+            'headers' => $this->getHeaders()
+        ])->then(function (ResponseInterface $response) {
+            if ($response->getStatusCode() === 200) {
+                try {
+                    $responseData = json_decode((string)$response->getBody(), true);
+                    if (isset($responseData['success'])) {
+                        return [$responseData['success'], $responseData['info']];
+                    } else {
+                        throw new JsonDecodingException('Unexpected response structure from response: ' . $response->getBody());
+                    }
+                } catch (\Exception $e) {
+                    throw new JsonDecodingException('Error decoding JSON response: ' . $e->getMessage() . ' from response: ' . $response->getBody());
+                }
+            } else if ($response->getStatusCode() === 401) {
+                return [false, 'Unauthorized - Missing or incorrect authentication'];
+            } else {
+                $this->handleError($response);
+            }
+        });
+    }
+
+    /**
      * Run the [ReactPHP event loop](https://reactphp.org/event-loop/). This allows other tasks to run while waiting for Respectify API responses. 
      * This **must** be called so that the promises resolve.
      */
