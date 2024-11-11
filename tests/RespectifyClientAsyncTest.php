@@ -287,4 +287,51 @@ class RespectifyClientAsyncTest extends TestCase {
             throw $caughtException;
         }
     }
+
+    public function testCheckUserCredentialsSuccess() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'success' => true,
+            'info' => 'Account is in good standing.'
+        ]));
+    
+        $this->browserMock->shouldReceive('get')->andReturn(resolve($responseMock));
+    
+        $promise = $this->client->checkUserCredentials();
+        $assertionCalled = false;
+    
+        $promise->then(function ($result) use (&$assertionCalled) {
+            [$success, $info] = $result;
+            $this->assertTrue($success);
+            $this->assertEquals('Account is in good standing.', $info);
+            $assertionCalled = true;
+        });
+    
+        $this->client->run();
+    
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+    
+    public function testCheckUserCredentialsUnauthorized() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(401);
+        $responseMock->shouldReceive('getReasonPhrase')->andReturn('Unauthorized');
+    
+        $this->browserMock->shouldReceive('get')->andReturn(resolve($responseMock));
+    
+        $promise = $this->client->checkUserCredentials();
+        $assertionCalled = false;
+    
+        $promise->then(function ($result) use (&$assertionCalled) {
+            [$success, $info] = $result;
+            $this->assertFalse($success);
+            $this->assertEquals('Unauthorized - Missing or incorrect authentication', $info);
+            $assertionCalled = true;
+        });
+    
+        $this->client->run();
+    
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
 }

@@ -22,6 +22,12 @@ If you want to run unit tests:
 $ composer require --dev phpunit/phpunit mockery/mockery 
 ```
 
+and then to run tests:
+
+```bash
+$ vendor/bin/phpunit --bootstrap vendor/autoload.php tests
+```
+
 ## Docs
 
 Docs are generated in Markdown format for Docusaurus via the phpdocumentor-markdown-customised phpdoc theme. It is MIT-licensed. Please see the readme in that folder for more information.
