@@ -5,3 +5,4 @@ Searching
 build/cache
 build
 docs
+tests/.env
