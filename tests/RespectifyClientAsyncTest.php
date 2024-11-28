@@ -38,11 +38,11 @@ class RespectifyClientAsyncTest extends TestCase {
         //     RESPECTIFY_EMAIL=your-email@example.com
         //     RESPECTIFY_API_KEY=your-api-key
         
-        $this->useRealApi = getenv('USE_REAL_API') === 'true';
+        $this->useRealApi = $_ENV['USE_REAL_API'] === 'true';
 
         if ($this->useRealApi) {
-            $email = getenv('RESPECTIFY_EMAIL');
-            $apiKey = getenv('RESPECTIFY_API_KEY');
+            $email = $_ENV['RESPECTIFY_EMAIL'];
+            $apiKey = $_ENV['RESPECTIFY_API_KEY'];
             $this->loop = Loop::get();
             $this->client = new RespectifyClientAsync($email, $apiKey);
             if (self::$isFirstSetup) { // Just print this once, not for every test
