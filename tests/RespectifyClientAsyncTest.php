@@ -380,12 +380,19 @@ class RespectifyClientAsyncTest extends TestCase {
         $promise = $this->client->checkUserCredentials();
         $assertionCalled = false;
 
-        $promise->then(function ($result) use (&$assertionCalled) {
-            [$success, $info] = $result;
-            $this->assertFalse($success);
-            $this->assertEquals('Unauthorized - Missing or incorrect authentication', $info);
-            $assertionCalled = true;
-        });
+        $promise->then(
+            function ($result) use (&$assertionCalled) {
+                [$success, $info] = $result;
+                $this->assertFalse($success);
+                $this->assertEquals('Unauthorized - Missing or incorrect authentication', $info);
+                $assertionCalled = true;
+                $this->assertFalse(false, 'This should not be reached, the method below should be reached');
+            },
+            function ($e) use (&$assertionCalled) {
+                $this->assertTrue($e instanceof \Respectify\Exceptions\UnauthorizedException, 'UnauthorizedException was thrown');
+                $assertionCalled = true;
+            }
+        );
 
         $this->client->run();
 

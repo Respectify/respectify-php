@@ -362,19 +362,29 @@ class RespectifyClientAsync {
         return $this->client->get('https://app.respectify.org/v0.2/usercheck', [
             'headers' => $this->getHeaders()
         ])->then(function (ResponseInterface $response) {
-            if ($response->getStatusCode() === 200) {
-                try {
-                    $responseData = json_decode((string)$response->getBody(), true);
-                    if (isset($responseData['success'])) {
-                        return [$responseData['success'], $responseData['info']];
-                    } else {
-                        throw new JsonDecodingException('Unexpected response structure from response: ' . $response->getBody());
-                    }
-                } catch (\Exception $e) {
-                    throw new JsonDecodingException('Error decoding JSON response: ' . $e->getMessage() . ' from response: ' . $response->getBody());
+            // Only if got 200 OK - anything else should be a promise rejection for the 
+            // otherwise function
+            if ($response->getStatusCode() !== 200) {
+                $this->handleError($response);
+            }
+            try {
+                $responseData = json_decode((string)$response->getBody(), true);
+                if (isset($responseData['success'])) {
+                    return [$responseData['success'], $responseData['info']];
+                } else {
+                    throw new JsonDecodingException('Unexpected response structure from response: ' . $response->getBody());
                 }
-            } else if ($response->getStatusCode() === 401) {
-                return [false, 'Unauthorized - Missing or incorrect authentication'];
+            } catch (\Exception $e) {
+                throw new JsonDecodingException('Error decoding JSON response: ' . $e->getMessage() . ' from response: ' . $response->getBody());
+            }
+        })->otherwise(function (\Exception $e) {
+            if ($e instanceof \React\Http\Message\ResponseException) {
+                $response = $e->getResponse();
+                if ($response->getStatusCode() === 401) {
+                    return [false, 'Unauthorized - Missing or incorrect authentication'];
+                } else {
+                    throw new RespectifyException('HTTP error: ' . $response->getStatusCode() . ' ' . $response->getReasonPhrase());
+                }
             } else {
                 $this->handleError($response);
             }
