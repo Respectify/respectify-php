@@ -190,7 +190,7 @@ class CommentScore {
  * to [run the event loop](https://reactphp.org/event-loop/) (if it's not already running) *after* you call the API methods
  * in order to resolve the promises that this API returns.
  * 
- * See the [Quick Start](/docs/PHP/SampleCode) for sample code.
+ * See the [Quick Start](/docs/SampleCode) for sample code.
  */
 class RespectifyClientAsync {
     private Browser $client;
