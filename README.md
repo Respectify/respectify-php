@@ -19,7 +19,7 @@ $ brew install composer
 
 If you want to run unit tests:
 ```bash
-$ composer require --dev phpunit/phpunit mockery/mockery 
+$ composer require --dev phpunit/phpunit mockery/mockery vlucas/phpdotenv
 ```
 
 and then to run tests:
