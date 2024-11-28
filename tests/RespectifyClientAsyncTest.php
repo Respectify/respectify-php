@@ -23,6 +23,7 @@ class RespectifyClientAsyncTest extends TestCase {
     private $browserMock;
     private $loop;
     private $useRealApi;
+    private static $isFirstSetup = true; // To print real or mock once at the start
 
     protected function setUp(): void {
         $dotenv = Dotenv::createImmutable(__DIR__);
@@ -44,16 +45,26 @@ class RespectifyClientAsyncTest extends TestCase {
             $apiKey = getenv('RESPECTIFY_API_KEY');
             $this->loop = Loop::get();
             $this->client = new RespectifyClientAsync($email, $apiKey);
+            if (self::$isFirstSetup) { // Just print this once, not for every test
+                echo "Using real API with email: $email\n";
+                self::$isFirstSetup = false;
+            }
         } else {
             $this->browserMock = m::mock(Browser::class);
             $this->loop = Loop::get();
-            $this->client = new RespectifyClientAsync('mock-email@example.com', 'mock-api-key', $this->browserMock);
+            $email = 'mock-email@example.com';
+            $this->client = new RespectifyClientAsync($email, 'mock-api-key', $this->browserMock);
 
             // Use reflection to set the private $client property
             $reflection = new \ReflectionClass($this->client);
             $clientProperty = $reflection->getProperty('client');
             $clientProperty->setAccessible(true);
             $clientProperty->setValue($this->client, $this->browserMock);
+
+            if (self::$isFirstSetup) { // Just print this once, not for every test
+                echo "Using mock API with email: $email\n";
+                self::$isFirstSetup = false;
+            }
         }
     }
 
