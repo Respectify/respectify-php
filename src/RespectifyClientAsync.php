@@ -347,6 +347,13 @@ class RespectifyClientAsync {
             } else {
                 $this->handleError($response);
             }
+        })->otherwise(function (\Exception $e) {
+            if ($e instanceof \React\Http\Message\ResponseException) {
+                $response = $e->getResponse();
+                $this->handleError($response);
+            } else {
+                throw $e;
+            }
         });
     }
 
