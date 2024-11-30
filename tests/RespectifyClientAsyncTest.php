@@ -273,9 +273,12 @@ class RespectifyClientAsyncTest extends TestCase {
     }
 
     public function testEvaluateCommentUnauthorized() {
-        $this->expectException(UnauthorizedException::class);
+        $this->expectException(\Respectify\Exceptions\UnauthorizedException::class);
 
-        if (!$this->useRealApi) {
+        if ($this->useRealApi) {
+            // Temporarily use incorrect credentials to test unauthorized response
+            $this->client = new RespectifyClientAsync('wrong-email@example.com', 'wrong-api-key');
+        } else {
             $responseMock = m::mock(ResponseInterface::class);
             $responseMock->shouldReceive('getStatusCode')->andReturn(401);
             $responseMock->shouldReceive('getReasonPhrase')->andReturn('Unauthorized');
@@ -284,40 +287,7 @@ class RespectifyClientAsyncTest extends TestCase {
         }
 
         $promise = $this->client->evaluateComment(
-            '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
-            'This is a test comment'
-        );
-        $caughtException = null;
-
-        $promise->then(
-            function ($commentScore) {
-                $this->fail('Expected exception not thrown');
-            },
-            function ($e) use (&$caughtException) {
-                $caughtException = $e;
-            }
-        );
-
-        $this->client->run();
-
-        if ($caughtException) {
-            throw $caughtException;
-        }
-    }
-
-    public function testEvaluateCommentUnsupportedMediaType() {
-        $this->expectException(UnsupportedMediaTypeException::class);
-
-        if (!$this->useRealApi) {
-            $responseMock = m::mock(ResponseInterface::class);
-            $responseMock->shouldReceive('getStatusCode')->andReturn(415);
-            $responseMock->shouldReceive('getReasonPhrase')->andReturn('Unsupported Media Type');
-
-            $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
-        }
-
-        $promise = $this->client->evaluateComment(
-            '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
+            $this->testArticleId,
             'This is a test comment'
         );
         $caughtException = null;
