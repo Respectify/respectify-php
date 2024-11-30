@@ -359,9 +359,9 @@ class RespectifyClientAsync {
      * @throws JsonDecodingException
      */
     public function checkUserCredentials(): PromiseInterface {
-        return $this->client->get('https://app.respectify.org/v0.2/usercheck', [
-            'headers' => $this->getHeaders()
-        ])->then(function (ResponseInterface $response) {
+        return $this->client->get('https://app.respectify.org/v0.2/usercheck',
+            $this->getHeaders()
+        )->then(function (ResponseInterface $response) {
             // Only if got 200 OK - anything else should be a promise rejection for the 
             // otherwise function
             if ($response->getStatusCode() !== 200) {
