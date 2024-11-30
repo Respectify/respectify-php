@@ -380,17 +380,18 @@ class RespectifyClientAsyncTest extends TestCase {
         $promise = $this->client->checkUserCredentials();
         $assertionCalled = false;
 
+        // Expected is for a 401 Unauthorised, not to get an exception but success=false
+        // Any other error (unexpected and a test failure) will be an exception
         $promise->then(
             function ($result) use (&$assertionCalled) {
                 [$success, $info] = $result;
                 $this->assertFalse($success);
                 $this->assertEquals('Unauthorized - Missing or incorrect authentication', $info);
                 $assertionCalled = true;
-                $this->assertFalse(false, 'This should not be reached, the method below should be reached');
             },
             function ($e) use (&$assertionCalled) {
-                $this->assertTrue($e instanceof \Respectify\Exceptions\UnauthorizedException, 'UnauthorizedException was thrown');
-                $assertionCalled = true;
+                $this->assertTrue($e instanceof \Respectify\Exceptions\RespectifyException, 'UnauthorizedException was thrown');
+                $assertionCalled = false; // Should not get here
             }
         );
 
