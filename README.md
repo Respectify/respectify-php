@@ -28,6 +28,16 @@ and then to run tests:
 $ vendor/bin/phpunit --bootstrap vendor/autoload.php tests
 ```
 
+Tests are run against mocks, but there is value in running against the real API. Do do this create a tests/.venv file, with content:
+
+```ini
+USE_REAL_API=true
+RESPECTIFY_EMAIL=you@example.com
+RESPECTIFY_API_KEY=your-api-key-here
+```
+
+using real Respectify credentials.
+
 ## Docs
 
 Docs are generated in Markdown format for Docusaurus via the phpdocumentor-markdown-customised phpdoc theme. It is MIT-licensed. Please see the readme in that folder for more information.
