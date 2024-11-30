@@ -333,10 +333,10 @@ class RespectifyClientAsync {
             $data['reply_to_comment'] = $replyToComment;
         }
     
-        return $this->client->post('https://app.respectify.org/v0.2/commentscore', [
-            'headers' => $this->getHeaders(),
-            'body' => http_build_query($data)
-        ])->then(function (ResponseInterface $response) {
+        return $this->client->post('https://app.respectify.org/v0.2/commentscore',
+            $this->getHeaders(),
+            http_build_query($data)
+        )->then(function (ResponseInterface $response) {
             if ($response->getStatusCode() === 200) {
                 try {
                     $responseData = json_decode((string)$response->getBody(), true);
