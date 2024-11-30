@@ -344,7 +344,7 @@ class RespectifyClientAsyncTest extends TestCase {
             $responseMock->shouldReceive('getStatusCode')->andReturn(200);
             $responseMock->shouldReceive('getBody')->andReturn(json_encode([
                 'success' => true,
-                'info' => 'Account is in good standing.'
+                'info' => ''
             ]));
 
             $this->browserMock->shouldReceive('get')->andReturn(resolve($responseMock));
@@ -355,8 +355,8 @@ class RespectifyClientAsyncTest extends TestCase {
 
         $promise->then(function ($result) use (&$assertionCalled) {
             [$success, $info] = $result;
-            $this->assertTrue($success);
-            $this->assertEquals('Account is in good standing.', $info);
+            $this->assertTrue($success, 'checkUserCredentials success is unexpectedly not true');
+            $this->assertEquals('', $info);
             $assertionCalled = true;
         });
 

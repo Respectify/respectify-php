@@ -370,7 +370,8 @@ class RespectifyClientAsync {
             try {
                 $responseData = json_decode((string)$response->getBody(), true);
                 if (isset($responseData['success'])) {
-                    return [$responseData['success'], $responseData['info']];
+                    $success = filter_var($responseData['success'], FILTER_VALIDATE_BOOLEAN); // Convert string, eg "true", to bool
+                    return [$success, $responseData['info']];
                 } else {
                     throw new JsonDecodingException('Unexpected response structure from response: ' . $response->getBody());
                 }
