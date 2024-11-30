@@ -34,6 +34,7 @@ Tests are run against mocks, but there is value in running against the real API.
 USE_REAL_API=true
 RESPECTIFY_EMAIL=you@example.com
 RESPECTIFY_API_KEY=your-api-key-here
+REAL_ARTICLE_ID=an-existing-article-id-here
 ```
 
 using real Respectify credentials.
