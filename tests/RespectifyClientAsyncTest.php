@@ -174,7 +174,7 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
         }
 
-        $promise = $this->client->initTopicFromUrl('https://example.com');
+        $promise = $this->client->initTopicFromUrl(''); // Invalid URL
         $caughtException = null;
 
         $promise->then(
