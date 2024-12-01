@@ -144,7 +144,7 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
         }
 
-        $promise = $this->client->initTopicFromText('Invalid text');
+        $promise = $this->client->initTopicFromText(''); // Empty text is invalid
         $caughtException = null;
 
         $promise->then(
