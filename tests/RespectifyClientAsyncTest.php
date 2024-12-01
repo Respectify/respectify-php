@@ -94,7 +94,7 @@ class RespectifyClientAsyncTest extends TestCase {
         $assertionCalled = false;
 
         $promise->then(function ($articleId) use (&$assertionCalled) {
-            $this->assertEquals('1234', $articleId);
+            $this->assertTrue(isValidUUID($articleId));
             $assertionCalled = true;
         });
 
@@ -104,16 +104,20 @@ class RespectifyClientAsyncTest extends TestCase {
     }
 
     public function testInitTopicGivingTextMissingArticleId() {
-        $this->expectException(JsonDecodingException::class);
-
-        if (!$this->useRealApi) {
-            $responseMock = m::mock(ResponseInterface::class);
-            $responseMock->shouldReceive('getStatusCode')->andReturn(200);
-            $responseMock->shouldReceive('getBody')->andReturn(json_encode([])); // Mock empty JSON, so missing article_id
-
-            $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+        // This test can only be mocked, no way to get the server to return invalid JSON
+        if ($this->useRealApi) {
+            $this->assertTrue(true); // Skip this test
+            return;
         }
 
+        $this->expectException(JsonDecodingException::class);
+
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([])); // Mock empty JSON, so missing article_id
+
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+        
         $promise = $this->client->initTopicFromText('Sample text');
         $caughtException = null;
 
@@ -261,7 +265,7 @@ class RespectifyClientAsyncTest extends TestCase {
 
         $promise = $this->client->evaluateComment(
             '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
-            'This is a test comment'
+            ''
         );
         $caughtException = null;
 
