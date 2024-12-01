@@ -18,6 +18,11 @@ use React\Promise\PromiseInterface;
 use Dotenv\Dotenv;
 use function React\Promise\resolve;
 
+// A regex seems to be the only way in PHP?
+function isValidUUID($uuid) {
+    return preg_match('/^\{?[A-Fa-f0-9]{8}\-[A-Fa-f0-9]{4}\-[A-Fa-f0-9]{4}\-[A-Fa-f0-9]{4}\-[A-Fa-f0-9]{12}\}?$/', $uuid) === 1;
+}
+
 class RespectifyClientAsyncTest extends TestCase {
     private $client;
     private $browserMock;
@@ -193,11 +198,11 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
         }
 
-        $promise = $this->client->initTopicFromUrl('https://example.com');
+        $promise = $this->client->initTopicFromUrl('https://daveon.design/creating-joy-in-the-user-experience.html');
         $assertionCalled = false;
 
         $promise->then(function ($articleId) use (&$assertionCalled) {
-            $this->assertEquals('1234', $articleId);
+            $this->assertTrue(isValidUUID($articleId));
             $assertionCalled = true;
         });
 
