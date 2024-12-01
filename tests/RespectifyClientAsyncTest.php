@@ -216,21 +216,21 @@ class RespectifyClientAsyncTest extends TestCase {
                 'negative_tone_phrases' => [],
                 'appears_low_effort' => false,
                 'is_spam' => false,
-                'overall_score' => 5
+                'overall_score' => 2
             ]));
 
             $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
         }
 
         $promise = $this->client->evaluateComment(
-            '2b38cb34-e3d7-492e-b61e-c3858f1863b7',
+            $this->testArticleId,
             'This is a test comment'
         );
         $assertionCalled = false;
 
         $promise->then(function ($commentScore) use (&$assertionCalled) {
             $this->assertInstanceOf(CommentScore::class, $commentScore);
-            $this->assertEquals(5, $commentScore->overallScore);
+            $this->assertTrue($commentScore->overallScore <= 2); // Real-world result will be 1 or 2
             $assertionCalled = true;
         });
 
