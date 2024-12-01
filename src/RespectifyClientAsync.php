@@ -253,10 +253,10 @@ class RespectifyClientAsync {
      * @throws RespectifyException
      */
     private function initTopic(array $data): PromiseInterface {
-        return $this->client->post('https://app.respectify.org/v0.2/inittopic', [
-            'headers' => $this->getHeaders(),
-            'body' => http_build_query($data)
-        ])->then(function (ResponseInterface $response) {
+        return $this->client->post('https://app.respectify.org/v0.2/inittopic',
+            $this->getHeaders(),
+            http_build_query($data)
+        )->then(function (ResponseInterface $response) {
             if ($response->getStatusCode() === 200) {
                 try {
                     $responseData = json_decode((string)$response->getBody(), true);
@@ -271,6 +271,13 @@ class RespectifyClientAsync {
             } else {
                 $this->handleError($response);
             }
+        })->otherwise(function (\Exception $e) {
+            if ($e instanceof \React\Http\Message\ResponseException) {
+                $response = $e->getResponse();
+                $this->handleError($response);
+            } else {
+                throw $e;
+            }
         });
     }
 
@@ -284,7 +291,7 @@ class RespectifyClientAsync {
      */
     public function initTopicFromText(string $text): PromiseInterface {
         if (empty($text)) {
-            throw new BadRequestException('Text must be provided');
+            throw new BadRequestException('Text must be provided'); // Server will reply with a 400 Bad Request anyway, this is faster
         }
         return $this->initTopic(['text' => $text]);
     }
@@ -302,7 +309,7 @@ class RespectifyClientAsync {
      */
     public function initTopicFromUrl(string $url): PromiseInterface {
         if (empty($url)) {
-            throw new BadRequestException('URL must be provided');
+            throw new BadRequestException('URL must be provided'); // Server will reply with a 400 Bad Request anyway, this is faster
         }
         return $this->initTopic(['url' => $url]);
     }
