@@ -28,6 +28,7 @@ class RespectifyClientAsyncTest extends TestCase {
     private $browserMock;
     private $loop;
     private $useRealApi;
+    private $testArticleId;
     private static $isFirstSetup = true; // To print real or mock once at the start
 
     protected function setUp(): void {
@@ -54,6 +55,7 @@ class RespectifyClientAsyncTest extends TestCase {
                 echo "Using real API with email: $email\n";
                 self::$isFirstSetup = false;
             }
+            $this->testArticleId = $_ENV['REAL_ARTICLE_ID'];
         } else {
             $this->browserMock = m::mock(Browser::class);
             $this->loop = Loop::get();
@@ -70,6 +72,8 @@ class RespectifyClientAsyncTest extends TestCase {
                 echo "Using mock API with email: $email\n";
                 self::$isFirstSetup = false;
             }
+
+            $this->testArticleId = '2b38cb35-e3d7-492f-b600-c3858f186300'; // Fake, but since mocking this is ok
         }
     }
 
