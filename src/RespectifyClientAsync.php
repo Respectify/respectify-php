@@ -396,7 +396,7 @@ class RespectifyClientAsync {
             if ($e instanceof \React\Http\Message\ResponseException) {
                 $response = $e->getResponse();
                 if ($response->getStatusCode() === 401) {
-                    return [false, 'Unauthorized - Missing or incorrect authentication'];
+                    return [false, 'Unauthorized. This means there was an error with the email and/or API key. Please check them and try again.'];
                 } else {
                     throw new RespectifyException('HTTP error: ' . $response->getStatusCode() . ' ' . $response->getReasonPhrase());
                 }
