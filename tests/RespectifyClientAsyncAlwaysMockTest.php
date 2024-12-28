@@ -59,9 +59,9 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
             'logical_fallacies' => [
                 [
                     'fallacy_name' => 'Ad Hominem',
-                    'quoted_logical_fallacy_example' => 'This is a "test" example with <special> characters & slashes\\.',
+                    'quoted_logical_fallacy_example' => 'This is a "test" example with <special> characters & slashes\\. Plus the word don\'t.',
                     'explanation_and_suggestions' => 'Explanation with control characters' . "\x00" . "\x1F" . ' and slashes\\.',
-                    'suggested_rewrite' => 'Suggested rewrite with <tags> and slashes\\.'
+                    'suggested_rewrite' => 'Suggested rewrite with <tags> and slashes\\. Don\\\'t is sanitised.' // Captures ' being sanitised to \', which is returned and unslashed
                 ]
             ],
             'objectionable_phrases' => [
@@ -99,9 +99,9 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
 
             // Verify logical fallacies
             $this->assertEquals('Ad Hominem', $commentScore->logicalFallacies[0]->fallacyName);
-            $this->assertEquals('This is a &quot;test&quot; example with &lt;special&gt; characters &amp; slashes.', $commentScore->logicalFallacies[0]->quotedLogicalFallacyExample);
+            $this->assertEquals('This is a &quot;test&quot; example with &lt;special&gt; characters &amp; slashes. Plus the word don&#039;t.', $commentScore->logicalFallacies[0]->quotedLogicalFallacyExample);
             $this->assertEquals('Explanation with control characters and slashes.', $commentScore->logicalFallacies[0]->explanation);
-            $this->assertEquals('Suggested rewrite with &lt;tags&gt; and slashes.', $commentScore->logicalFallacies[0]->suggestedRewrite);
+            $this->assertEquals('Suggested rewrite with &lt;tags&gt; and slashes. Don&#039;t is sanitised.', $commentScore->logicalFallacies[0]->suggestedRewrite);
 
             // Verify objectionable phrases
             $this->assertEquals('Objectionable &quot;phrase&quot; with &lt;special&gt; characters &amp; slashes.', $commentScore->objectionablePhrases[0]->quotedObjectionablePhrase);
