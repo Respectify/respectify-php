@@ -369,12 +369,17 @@ class RespectifyClientAsyncTest extends TestCase {
             function ($result) use (&$assertionCalled) {
                 [$success, $info] = $result;
                 $this->assertFalse($success);
-                $this->assertEquals('Unauthorized - Missing or incorrect authentication', $info);
+                // The exact message might change but it needs to contain all these
+                $this->assertStringContainsString('Unauthorized', $info);
+                $this->assertStringContainsString('email', $info);
+                $this->assertStringContainsString('API key', $info);
                 $assertionCalled = true;
             },
             function ($e) use (&$assertionCalled) {
+                print_r("Exception: ");
+                print_r($e);
                 $this->assertTrue($e instanceof \Respectify\Exceptions\RespectifyException, 'UnauthorizedException was thrown');
-                $assertionCalled = false; // Should not get here
+                $assertionCalled = false; // Should never get here
             }
         );
 
