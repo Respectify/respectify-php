@@ -52,7 +52,7 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->loop = Loop::get();
             $this->client = new RespectifyClientAsync($email, $apiKey);
             if (self::$isFirstSetup) { // Just print this once, not for every test
-                echo "Using real API with email: $email\n";
+                echo "\nUsing real API with email: $email\n";
                 self::$isFirstSetup = false;
             }
             $this->testArticleId = $_ENV['REAL_ARTICLE_ID'];
@@ -69,7 +69,7 @@ class RespectifyClientAsyncTest extends TestCase {
             $clientProperty->setValue($this->client, $this->browserMock);
 
             if (self::$isFirstSetup) { // Just print this once, not for every test
-                echo "Using mock API with email: $email\n";
+                echo "\nUsing mock API with email: $email\n";
                 self::$isFirstSetup = false;
             }
 

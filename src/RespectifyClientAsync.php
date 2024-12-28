@@ -315,6 +315,26 @@ class RespectifyClientAsync {
     }
 
     /**
+     * Sanitise the data returned from the server.
+     * @param $data The data to sanitise; an array of strings or arrays (coming from JSON)
+     * @return string The sanitised data, in the same structure as the input
+     */
+    private function sanitiseReturnedData($data) {
+        if (is_string($data)) {
+            // Trim whitespace
+            $data = trim($data);
+            // Remove control characters
+            $data = preg_replace('/[\x00-\x1F\x7F]/u', '', $data);
+            // Strip slashes already added (so not double-slashed)
+            // and convert special characters to HTML entities
+            return htmlspecialchars(stripslashes($data), ENT_QUOTES, 'UTF-8');
+        } elseif (is_array($data)) {
+            return array_map([$this, 'sanitiseReturnedData'], $data);
+        }
+        return $data;
+    }
+
+    /**
      * Evaluate a comment in the context of the article/blog/etc the conversation is about, and optionally the comment it is replying to.
      *
      * This is Respectify's main API and the one you will likely call the most. It returns
@@ -347,6 +367,15 @@ class RespectifyClientAsync {
             if ($response->getStatusCode() === 200) {
                 try {
                     $responseData = json_decode((string)$response->getBody(), true);
+
+                    // Sanitise the data. It was sanitised when sent to the API, but the return results will include
+                    // parts of what the user wrote, so need to be sanitised.
+                    // For every key in the returned JSON, sanitise the value. The value can be a string or an array that mimics
+                    // the structure of the input.
+                    
+                    // Sanitize the entire response data
+                    $responseData = $this->sanitiseReturnedData($responseData);
+
                     return new CommentScore($responseData);
                 } catch (\Exception $e) {
                     throw new JsonDecodingException('Error decoding JSON response: ' . $e->getMessage() . ' from response: ' . $response->getBody());
