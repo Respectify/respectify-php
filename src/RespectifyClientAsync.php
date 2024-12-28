@@ -32,7 +32,7 @@ class LogicalFallacy {
      * Explanation of why this is an example of this kind of logical fallacy,
      * and suggestions for improvement to keep the point while not falling into the trap.
      */
-    public string $explanationAndSuggestions;
+    public string $explanation;
 
     /**
      * Suggested rewrite to avoid the logical fallacy.
@@ -49,7 +49,7 @@ class LogicalFallacy {
     public function __construct(array $data) {
         $this->fallacyName = $data['fallacy_name'] ?? '';
         $this->quotedLogicalFallacyExample = $data['quoted_logical_fallacy_example'] ?? '';
-        $this->explanationAndSuggestions = $data['explanation_and_suggestions'] ?? '';
+        $this->explanation = $data['explanation_and_suggestions'] ?? '';
         $this->suggestedRewrite = $data['suggested_rewrite'] ?? '';
     }
 }
