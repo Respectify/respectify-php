@@ -234,13 +234,13 @@ class RespectifyClientAsync {
     private function handleError(ResponseInterface $response): void {
         switch ($response->getStatusCode()) {
             case 400:
-                throw new BadRequestException('Bad Request: ' . $response->getReasonPhrase());
+                throw new BadRequestException('Bad Request: ' . htmlspecialchars($response->getReasonPhrase(), ENT_QUOTES, 'UTF-8'));
             case 401:
-                throw new UnauthorizedException('Unauthorized: ' . $response->getReasonPhrase());
+                throw new UnauthorizedException('Unauthorized: ' . htmlspecialchars($response->getReasonPhrase(), ENT_QUOTES, 'UTF-8'));
             case 415:
-                throw new UnsupportedMediaTypeException('Unsupported Media Type: ' . $response->getReasonPhrase());
+                throw new UnsupportedMediaTypeException('Unsupported Media Type: ' . htmlspecialchars($response->getReasonPhrase(), ENT_QUOTES, 'UTF-8'));
             default:
-                throw new RespectifyException('Error: ' . $response->getStatusCode() . ' - ' . $response->getReasonPhrase());
+                throw new RespectifyException('Error: ' . $response->getStatusCode() . ' - ' . htmlspecialchars($response->getReasonPhrase(), ENT_QUOTES, 'UTF-8'));
         }
     }
 
@@ -263,10 +263,10 @@ class RespectifyClientAsync {
                     if (isset($responseData['article_id'])) {
                         return $responseData['article_id'];
                     } else {
-                        throw new JsonDecodingException('Error: article_id not found in the JSON response: ' . $response->getBody());
+                        throw new JsonDecodingException('Error: article_id not found in the JSON response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
                     }
                 } catch (\Exception $e) {
-                    throw new JsonDecodingException('Error decoding JSON response: ' . $e->getMessage() . ' from response: ' . $response->getBody());
+                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . ' from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
                 }
             } else {
                 $this->handleError($response);
@@ -378,7 +378,7 @@ class RespectifyClientAsync {
 
                     return new CommentScore($responseData);
                 } catch (\Exception $e) {
-                    throw new JsonDecodingException('Error decoding JSON response: ' . $e->getMessage() . ' from response: ' . $response->getBody());
+                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . ' from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
                 }
             } else {
                 $this->handleError($response);
@@ -416,10 +416,10 @@ class RespectifyClientAsync {
                     $success = filter_var($responseData['success'], FILTER_VALIDATE_BOOLEAN); // Convert string, eg "true", to bool
                     return [$success, $responseData['info']];
                 } else {
-                    throw new JsonDecodingException('Unexpected response structure from response: ' . $response->getBody());
+                    throw new JsonDecodingException('Unexpected response structure from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
                 }
             } catch (\Exception $e) {
-                throw new JsonDecodingException('Error decoding JSON response: ' . $e->getMessage() . ' from response: ' . $response->getBody());
+                throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . ' from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
             }
         })->otherwise(function (\Exception $e) {
             if ($e instanceof \React\Http\Message\ResponseException) {
@@ -427,7 +427,7 @@ class RespectifyClientAsync {
                 if ($response->getStatusCode() === 401) {
                     return [false, 'Unauthorized. This means there was an error with the email and/or API key. Please check them and try again.'];
                 } else {
-                    throw new RespectifyException('HTTP error: ' . $response->getStatusCode() . ' ' . $response->getReasonPhrase());
+                    throw new RespectifyException('HTTP error: ' . $response->getStatusCode() . ' ' . htmlspecialchars($response->getReasonPhrase(), ENT_QUOTES, 'UTF-8'));
                 }
             } else {
                 $this->handleError($response);
