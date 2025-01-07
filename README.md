@@ -43,6 +43,8 @@ using real Respectify credentials.
 
 Docs are generated in Markdown format for Docusaurus via the phpdocumentor-markdown-customised phpdoc theme. It is MIT-licensed. Please see the readme in that folder for more information.
 
+You'll need `twig` and `php-documentor` installed (install the dev dependencies.)
+
 If you have a `phpdoc` command available (eg, set up as a Docker container):
 
 ```bash
