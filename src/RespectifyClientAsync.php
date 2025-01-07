@@ -240,7 +240,7 @@ class RespectifyClientAsync {
             case 415:
                 throw new UnsupportedMediaTypeException('Unsupported Media Type: ' . htmlspecialchars($response->getReasonPhrase(), ENT_QUOTES, 'UTF-8'));
             default:
-                throw new RespectifyException('Error: ' . $response->getStatusCode() . ' - ' . htmlspecialchars($response->getReasonPhrase(), ENT_QUOTES, 'UTF-8'));
+                throw new RespectifyException('Error: ' . htmlspecialchars((string)$response->getStatusCode(), ENT_QUOTES, 'UTF-8') . ' - ' . htmlspecialchars($response->getReasonPhrase(), ENT_QUOTES, 'UTF-8'));
         }
     }
 
@@ -427,7 +427,7 @@ class RespectifyClientAsync {
                 if ($response->getStatusCode() === 401) {
                     return [false, 'Unauthorized. This means there was an error with the email and/or API key. Please check them and try again.'];
                 } else {
-                    throw new RespectifyException('HTTP error: ' . $response->getStatusCode() . ' ' . htmlspecialchars($response->getReasonPhrase(), ENT_QUOTES, 'UTF-8'));
+                    throw new RespectifyException('HTTP error: ' . htmlspecialchars((string)$response->getStatusCode(), ENT_QUOTES, 'UTF-8') . ' ' . htmlspecialchars($response->getReasonPhrase(), ENT_QUOTES, 'UTF-8'));
                 }
             } else {
                 $this->handleError($response);
