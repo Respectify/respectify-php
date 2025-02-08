@@ -15,14 +15,12 @@ use React\Http\Browser;
 use React\EventLoop\Loop;
 use Psr\Http\Message\ResponseInterface;
 use React\Promise\PromiseInterface;
-use Dotenv\Dotenv;
 use function React\Promise\resolve;
 
 class RespectifyClientAsyncAlwaysMockTest extends TestCase {
     private $client;
     private $browserMock;
     private $loop;
-    private $useRealApi;
     private $testArticleId;
     private static $isFirstSetup = true; // To print real or mock once at the start
 
@@ -47,8 +45,44 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
     }
 
     protected function tearDown(): void {
-        // Teardown code here
         m::close();
+    }
+
+    public function testCustomBaseUrlAndVersion() {
+        $customBaseUrl = 'https://custom.example.com';
+        $customVersion = 1.0;
+
+        $this->browserMock = m::mock(Browser::class);
+        $this->loop = Loop::get();
+        $email = 'mock-email@example.com';
+        $this->client = new RespectifyClientAsync($email, 'mock-api-key', $customBaseUrl, $customVersion);
+
+        // Use reflection to set the private $client property
+        $reflection = new \ReflectionClass($this->client);
+        $clientProperty = $reflection->getProperty('client');
+        $clientProperty->setAccessible(true);
+        $clientProperty->setValue($this->client, $this->browserMock);
+
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode(['article_id' => '1234']));
+
+        $this->browserMock->shouldReceive('post')
+            ->withArgs(function ($url) use ($customBaseUrl, $customVersion) {
+                return $url === "{$customBaseUrl}/v{$customVersion}/inittopic";
+            })
+            ->andReturn(resolve($responseMock));
+
+        $promise = $this->client->initTopicFromText('Sample text');
+        $assertionCalled = false;
+
+        $promise->then(function ($articleId) use (&$assertionCalled) {
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
     }
 
     public function testEvaluateCommentSanitization() {
@@ -93,9 +127,6 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
 
         $promise->then(function ($commentScore) use (&$assertionCalled) {
             $this->assertInstanceOf(CommentScore::class, $commentScore);
-
-            // print("Comment score: ");
-            // print_r($commentScore);
 
             // Verify logical fallacies
             $this->assertEquals('Ad Hominem', $commentScore->logicalFallacies[0]->fallacyName);

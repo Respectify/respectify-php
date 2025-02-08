@@ -193,22 +193,31 @@ class CommentScore {
  * See the [Quick Start](/docs/SampleCode) for sample code.
  */
 class RespectifyClientAsync {
+    private const DEFAULT_BASE_URL = 'https://app.respectify.org';
+    private const DEFAULT_VERSION = 0.2;
+
     private Browser $client;
     private $loop;
     private string $email;
     private string $apiKey;
+    private string $baseUrl;
+    private float $version;
 
     /**
      * Create an instance of the async Respectify API client.
      * @param string $email An email address.
      * @param string $apiKey A hex string representing the API key.
+     * @param string $baseUrl The base URL for the Respectify API.
+     * @param float $version The API version.
      * @return self
      */
-    public function __construct(string $email, string $apiKey) {
+    public function __construct(string $email, string $apiKey, string $baseUrl = self::DEFAULT_BASE_URL, float $version = self::DEFAULT_VERSION) {
         $this->loop = Loop::get();
         $this->client = new Browser($this->loop);
         $this->email = $email;
         $this->apiKey = $apiKey;
+        $this->baseUrl = rtrim($baseUrl, '/');
+        $this->version = $version;
     }
 
     /**
@@ -253,7 +262,7 @@ class RespectifyClientAsync {
      * @throws RespectifyException
      */
     private function initTopic(array $data): PromiseInterface {
-        return $this->client->post('https://app.respectify.org/v0.2/inittopic',
+        return $this->client->post("{$this->baseUrl}/v{$this->version}/inittopic",
             $this->getHeaders(),
             http_build_query($data)
         )->then(function (ResponseInterface $response) {
@@ -360,7 +369,7 @@ class RespectifyClientAsync {
             $data['reply_to_comment'] = $replyToComment;
         }
     
-        return $this->client->post('https://app.respectify.org/v0.2/commentscore',
+        return $this->client->post("{$this->baseUrl}/v{$this->version}/commentscore",
             $this->getHeaders(),
             http_build_query($data)
         )->then(function (ResponseInterface $response) {
@@ -402,7 +411,7 @@ class RespectifyClientAsync {
      * @throws JsonDecodingException
      */
     public function checkUserCredentials(): PromiseInterface {
-        return $this->client->get('https://app.respectify.org/v0.2/usercheck',
+        return $this->client->get("{$this->baseUrl}/v{$this->version}/usercheck",
             $this->getHeaders()
         )->then(function (ResponseInterface $response) {
             // Only if got 200 OK - anything else should be a promise rejection for the 
