@@ -441,25 +441,25 @@ class RespectifyClientAsync {
             } catch (\Exception $e) {
                 throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . ' from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
             }
-            )->otherwise(function (\Exception $e) {
-                if ($e instanceof \React\Socket\ConnectException) {
-                    throw new RespectifyException('Service not found: ' . $e->getMessage(), $e->getCode(), $e);
+        })->otherwise(function (\Exception $e) {
+            if ($e instanceof \React\Socket\ConnectException) {
+                throw new RespectifyException('Service not found: ' . $e->getMessage(), $e->getCode(), $e);
+            }
+            if ($e instanceof \React\Http\Message\ResponseException) {
+                $response = $e->getResponse();
+                if ($response !== null && $response->getStatusCode() === 401) {
+                    return [false, 'Unauthorized. This means there was an error with the email and/or API key. Please check them and try again.'];
+                } elseif ($response instanceof ResponseInterface) {
+                    throw new RespectifyException(
+                        'HTTP error: ' . htmlspecialchars((string)$response->getStatusCode(), ENT_QUOTES, 'UTF-8') . ' ' . htmlspecialchars($response->getReasonPhrase(), ENT_QUOTES, 'UTF-8')
+                    );
+                } else {
+                    throw new RespectifyException('HTTP error: Response is missing');
                 }
-                if ($e instanceof \React\Http\Message\ResponseException) {
-                    $response = $e->getResponse();
-                    if ($response !== null && $response->getStatusCode() === 401) {
-                        return [false, 'Unauthorized. This means there was an error with the email and/or API key. Please check them and try again.'];
-                    } elseif ($response instanceof ResponseInterface) {
-                        throw new RespectifyException(
-                            'HTTP error: ' . htmlspecialchars((string)$response->getStatusCode(), ENT_QUOTES, 'UTF-8') . ' ' . htmlspecialchars($response->getReasonPhrase(), ENT_QUOTES, 'UTF-8')
-                        );
-                    } else {
-                        throw new RespectifyException('HTTP error: Response is missing');
-                    }
-                }
-                // Fallback: rethrow or wrap the original error for better debugging.
-                throw new RespectifyException('Error: ' . $e->getMessage(), $e->getCode(), $e);
-            });
+            }
+            // Fallback: rethrow or wrap the original error for better debugging.
+            throw new RespectifyException('Error: ' . $e->getMessage(), $e->getCode(), $e);
+        });
     }
 
     /**
