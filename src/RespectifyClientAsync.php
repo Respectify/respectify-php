@@ -201,7 +201,7 @@ class RespectifyClientAsync {
     private string $email;
     private string $apiKey;
     private string $baseUrl;
-    private float $version;
+    private string $version;
 
     /**
      * Create an instance of the async Respectify API client.
@@ -217,7 +217,8 @@ class RespectifyClientAsync {
         $this->email = $email;
         $this->apiKey = $apiKey;
         $this->baseUrl = rtrim($baseUrl, '/');
-        $this->version = $version;
+        $formatted_api_version = sprintf('%.1f', floatval($version)); // Always 1DP, eg, 1.0 or 0.2
+        $this->version = $formatted_api_version;
     }
 
     /**
