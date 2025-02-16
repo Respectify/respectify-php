@@ -458,7 +458,7 @@ class RespectifyClientAsync {
                 }
             }
             // Fallback: rethrow or wrap the original error for better debugging.
-            throw new RespectifyException('Error: ' . $e->getMessage(), $e->getCode(), $e);
+            throw new RespectifyException('Error: ' . get_class($e) . ": " . $e->getMessage(), $e->getCode(), $e);
         });
     }
 
