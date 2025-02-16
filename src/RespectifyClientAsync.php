@@ -234,14 +234,24 @@ class RespectifyClientAsync {
     }
 
     /**
-     * Handle errors from the API response. This always raises an exception.
-     * @param ResponseInterface $response
+     * Handle errors from the API response. This always raises an exception. Ideally, $response is a ResponseInterface
+     * but handle anything.
+     * @param mixed $response
      * @throws BadRequestException
      * @throws UnauthorizedException
      * @throws UnsupportedMediaTypeException
      * @throws RespectifyException
      */
-    private function handleError(ResponseInterface $response): void {
+    private function handleError(mixed $response): void {
+        if ($response === null) {
+            throw new RespectifyException('Unknown error occurred: response is null');
+        }
+        if (!$response instanceof ResponseInterface) {
+            if ($response instanceof \Exception) {
+                throw new RespectifyException('Generic error: ' . $response->getMessage(), $response->getCode(), $response);
+            }
+            throw new RespectifyException('Unknown error occurred');
+        }
         switch ($response->getStatusCode()) {
             case 400:
                 throw new BadRequestException('Bad Request: ' . htmlspecialchars($response->getReasonPhrase(), ENT_QUOTES, 'UTF-8'));
