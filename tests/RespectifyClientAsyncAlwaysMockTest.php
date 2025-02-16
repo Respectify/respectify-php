@@ -67,9 +67,11 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
         $responseMock->shouldReceive('getStatusCode')->andReturn(200);
         $responseMock->shouldReceive('getBody')->andReturn(json_encode(['article_id' => '1234']));
 
+
+        $formatted_api_version = sprintf('%.1f', floatval($customVersion)); // Always 1DP, eg, 1.0 or 0.2: this is what the RespectifyClientAsync does with the float param
         $this->browserMock->shouldReceive('post')
-            ->withArgs(function ($url) use ($customBaseUrl, $customVersion) {
-                return $url === "{$customBaseUrl}/v{$customVersion}/inittopic";
+            ->withArgs(function ($url, $headers, $body) use ($customBaseUrl, $formatted_api_version) {
+                return $url === "{$customBaseUrl}/v{$formatted_api_version}/inittopic";
             })
             ->andReturn(resolve($responseMock));
 
