@@ -129,7 +129,7 @@ class NegativeTonePhrase {
 
 /**
  * Represents the results of a comment evaluation by Respectify, and contains info on various aspects.
- * This includes if it's spam, low effort, and an overall quality evaluation, plus more detailed evaluation
+ * This includes low effort detection and an overall quality evaluation, plus more detailed evaluation
  * of logical fallacies, objectionable phrases, and negative tone.
  */
 class CommentScore {
@@ -157,12 +157,6 @@ class CommentScore {
     public bool $appearsLowEffort;
 
     /**
-     * Indicates whether the comment is likely spam. This is an 'early exit' condition so if true, the
-     * other fields may not be calculated.
-     */
-    public bool $isSpam;
-
-    /**
      * Represents an approximate evaluation of the 'quality' of the comment, in terms of how well it
      * contributes to a healthy conversation. This is a number from 1 to 5.
      */
@@ -178,8 +172,131 @@ class CommentScore {
         $this->objectionablePhrases = array_map(fn($item) => new ObjectionablePhrase($item), $data['objectionable_phrases'] ?? []);
         $this->negativeTonePhrases = array_map(fn($item) => new NegativeTonePhrase($item), $data['negative_tone_phrases'] ?? []);
         $this->appearsLowEffort = $data['appears_low_effort'] ?? false;
-        $this->isSpam = $data['is_spam'] ?? false;
         $this->overallScore = $data['overall_score'] ?? 0;
+    }
+}
+
+/**
+ * Represents the results of a spam detection evaluation by Respectify.
+ */
+class SpamDetectionResult {
+    /**
+     * Indicates whether the comment is likely spam.
+     */
+    public bool $isSpam;
+
+    /**
+     * The confidence level (0.0 to 1.0) of the spam detection.
+     */
+    public float $confidence;
+    
+    /**
+     * Explanation for why the comment was classified as spam or not.
+     */
+    public string $reasoning;
+
+    /**
+     * SpamDetectionResult constructor. You should never need to call this. It is created
+     * internally by the Respectify client class when it gets a response.
+     * @param array $data The data to initialize the spam detection result, coming from JSON.
+     */
+    public function __construct(array $data) {
+        $this->isSpam = $data['is_spam'] ?? false;
+        $this->confidence = floatval($data['confidence'] ?? 0.0);
+        $this->reasoning = $data['reasoning'] ?? '';
+    }
+}
+
+/**
+ * Represents the on-topic (relevance) assessment result.
+ */
+class OnTopicResult {
+    /**
+     * Explanation of why the comment was classified as on-topic or not.
+     */
+    public string $reasoning;
+    
+    /**
+     * Whether the comment is considered on-topic.
+     */
+    public bool $onTopic;
+    
+    /**
+     * The confidence level (0.0 to 1.0) of the on-topic evaluation.
+     */
+    public float $confidence;
+    
+    /**
+     * OnTopicResult constructor. You should never need to call this. It is created
+     * internally by the Respectify client class when it gets a response.
+     * @param array $data The data to initialize the on-topic result, coming from JSON.
+     */
+    public function __construct(array $data) {
+        $this->reasoning = $data['reasoning'] ?? '';
+        $this->onTopic = $data['on_topic'] ?? false;
+        $this->confidence = floatval($data['confidence'] ?? 0.0);
+    }
+}
+
+/**
+ * Represents the banned topics assessment result.
+ */
+class BannedTopicsResult {
+    /**
+     * Explanation of why the comment was assessed as containing banned topics or not.
+     */
+    public string $reasoning;
+    
+    /**
+     * List of banned topics detected in the comment.
+     */
+    public array $bannedTopics;
+    
+    /**
+     * A score representing the extent of the banned content in the comment (0-1).
+     */
+    public float $quantityOnBannedTopics;
+    
+    /**
+     * The confidence level (0.0 to 1.0) of the banned topics evaluation.
+     */
+    public float $confidence;
+    
+    /**
+     * BannedTopicsResult constructor. You should never need to call this. It is created
+     * internally by the Respectify client class when it gets a response.
+     * @param array $data The data to initialize the banned topics result, coming from JSON.
+     */
+    public function __construct(array $data) {
+        $this->reasoning = $data['reasoning'] ?? '';
+        $this->bannedTopics = $data['banned_topics'] ?? [];
+        $this->quantityOnBannedTopics = floatval($data['quantity_on_banned_topics'] ?? 0.0);
+        $this->confidence = floatval($data['confidence'] ?? 0.0);
+    }
+}
+
+/**
+ * Represents the results of a comment relevance evaluation by Respectify.
+ */
+class CommentRelevanceResult {
+    /**
+     * The on-topic assessment result.
+     */
+    public OnTopicResult $onTopic;
+    
+    /**
+     * The banned topics assessment result.
+     */
+    public BannedTopicsResult $bannedTopics;
+    
+    /**
+     * CommentRelevanceResult constructor. You should never need to call this. It is created
+     * internally by the Respectify client class when it gets a response.
+     * @param array $data The data to initialize the comment relevance result, coming from JSON.
+     */
+    public function __construct(array $data) {
+        $this->onTopic = new OnTopicResult($data['on_topic'] ?? []);
+        $this->bannedTopics = new BannedTopicsResult($data['banned_topics'] ?? []);
     }
 }
 
@@ -459,6 +576,120 @@ class RespectifyClientAsync {
             }
             // Fallback: rethrow or wrap the original error for better debugging.
             throw new RespectifyException('Error: ' . get_class($e) . ": " . $e->getMessage(), $e->getCode(), $e);
+        });
+    }
+
+    /**
+     * Checks if a comment is spam.
+     *
+     * This endpoint allows you to evaluate a comment for spam without the full comment score analysis.
+     * The article context is optional, and if omitted the comment is evaluated on its own.
+     * 
+     * @param string $comment The comment text to check for spam.
+     * @param string|null $articleContextId Optional. The article context UUID from initTopicFromText/initTopicFromUrl.
+     * @return PromiseInterface<SpamDetectionResult> A promise that resolves to a SpamDetectionResult object.
+     * @throws BadRequestException
+     * @throws RespectifyException
+     */
+    public function checkSpam(string $comment, ?string $articleContextId = null): PromiseInterface {
+        if (empty($comment)) {
+            throw new BadRequestException('Comment must be provided');
+        }
+
+        $data = [
+            'comment' => $comment
+        ];
+
+        if ($articleContextId !== null) {
+            $data['article_context_id'] = $articleContextId;
+        }
+
+        return $this->client->post("{$this->baseUrl}/v{$this->version}/antispam",
+            $this->getHeaders(),
+            http_build_query($data)
+        )->then(function (ResponseInterface $response) {
+            if ($response->getStatusCode() === 200) {
+                try {
+                    $responseData = json_decode((string)$response->getBody(), true);
+                    
+                    // Sanitize the response data
+                    $responseData = $this->sanitiseReturnedData($responseData);
+                    
+                    return new SpamDetectionResult($responseData);
+                } catch (\Exception $e) {
+                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . ' from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
+                }
+            } else {
+                $this->handleError($response);
+            }
+        })->otherwise(function (\Exception $e) {
+            if ($e instanceof \React\Http\Message\ResponseException) {
+                $response = $e->getResponse();
+                $this->handleError($response);
+            } else {
+                throw $e;
+            }
+        });
+    }
+
+    /**
+     * Evaluates the relevance of a comment to the article it's a comment on.
+     *
+     * This endpoint also checks for topics the site admin does not want discussed.
+     * It helps keep conversations relevant or on-topic and allows site admins to disallow
+     * conversation on specific topics.
+     * 
+     * @param string $articleContextId The article context UUID from initTopicFromText/initTopicFromUrl.
+     * @param string $comment The comment text to evaluate for relevance.
+     * @param array|null $bannedTopics Optional. List of banned topics to check against.
+     * @return PromiseInterface<CommentRelevanceResult> A promise that resolves to a CommentRelevanceResult object.
+     * @throws BadRequestException
+     * @throws RespectifyException
+     */
+    public function checkRelevance(string $articleContextId, string $comment, ?array $bannedTopics = null): PromiseInterface {
+        if (empty($articleContextId)) {
+            throw new BadRequestException('Article context ID must be provided');
+        }
+        
+        if (empty($comment)) {
+            throw new BadRequestException('Comment must be provided');
+        }
+
+        $data = [
+            'article_context_id' => $articleContextId,
+            'comment' => $comment
+        ];
+
+        if ($bannedTopics !== null && !empty($bannedTopics)) {
+            // For form-urlencoded, convert array to comma-separated string
+            $data['banned_topics'] = implode(',', $bannedTopics);
+        }
+
+        return $this->client->post("{$this->baseUrl}/v{$this->version}/commentrelevance",
+            $this->getHeaders(),
+            http_build_query($data)
+        )->then(function (ResponseInterface $response) {
+            if ($response->getStatusCode() === 200) {
+                try {
+                    $responseData = json_decode((string)$response->getBody(), true);
+                    
+                    // Sanitize the response data
+                    $responseData = $this->sanitiseReturnedData($responseData);
+                    
+                    return new CommentRelevanceResult($responseData);
+                } catch (\Exception $e) {
+                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . ' from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
+                }
+            } else {
+                $this->handleError($response);
+            }
+        })->otherwise(function (\Exception $e) {
+            if ($e instanceof \React\Http\Message\ResponseException) {
+                $response = $e->getResponse();
+                $this->handleError($response);
+            } else {
+                throw $e;
+            }
         });
     }
 
