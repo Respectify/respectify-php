@@ -6,6 +6,8 @@ use PHPUnit\Framework\TestCase;
 use Mockery as m;
 use Respectify\RespectifyClientAsync;
 use Respectify\CommentScore;
+use Respectify\SpamDetectionResult;
+use Respectify\CommentRelevanceResult;
 use Respectify\Exceptions\BadRequestException;
 use Respectify\Exceptions\UnauthorizedException;
 use Respectify\Exceptions\UnsupportedMediaTypeException;
@@ -115,7 +117,6 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
                 ]
             ],
             'appears_low_effort' => false,
-            'is_spam' => false,
             'overall_score' => 2
         ]));
 
@@ -146,6 +147,77 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
             $this->assertEquals('Explanation with control characters and slashes.', $commentScore->negativeTonePhrases[0]->explanation);
             $this->assertEquals('Suggested rewrite with &lt;tags&gt; and slashes.', $commentScore->negativeTonePhrases[0]->suggestedRewrite);
 
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+    
+    public function testSpamDetectionSanitization() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'is_spam' => true,
+            'confidence' => 0.95,
+            'reasoning' => 'This comment contains spam indicators with <script>alert("xss")</script> and control chars' . "\x00" . "\x1F" . ' that should be removed.'
+        ]));
+
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+
+        $promise = $this->client->checkSpam('This is a test spam comment');
+        $assertionCalled = false;
+
+        $promise->then(function ($result) use (&$assertionCalled) {
+            $this->assertInstanceOf(SpamDetectionResult::class, $result);
+            $this->assertTrue($result->isSpam);
+            $this->assertEquals(0.95, $result->confidence);
+            $this->assertEquals('This comment contains spam indicators with &lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt; and control chars that should be removed.', $result->reasoning);
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testCommentRelevanceSanitization() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'on_topic' => [
+                'reasoning' => 'The comment is on-topic with <script>alert("xss")</script> and control chars' . "\x00" . "\x1F" . ' that should be removed.',
+                'on_topic' => true,
+                'confidence' => 0.92
+            ],
+            'banned_topics' => [
+                'reasoning' => 'The comment contains banned topics with <script>alert("xss")</script> and control chars' . "\x00" . "\x1F" . ' that should be removed.',
+                'banned_topics' => ['politics<script>', 'religion<script>'],
+                'quantity_on_banned_topics' => 0.65,
+                'confidence' => 0.9
+            ]
+        ]));
+
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+
+        $promise = $this->client->checkRelevance($this->testArticleId, 'This is a test relevance comment');
+        $assertionCalled = false;
+
+        $promise->then(function ($result) use (&$assertionCalled) {
+            $this->assertInstanceOf(CommentRelevanceResult::class, $result);
+            
+            // Check OnTopicResult
+            $this->assertTrue($result->onTopic->onTopic);
+            $this->assertEquals(0.92, $result->onTopic->confidence);
+            $this->assertEquals('The comment is on-topic with &lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt; and control chars that should be removed.', $result->onTopic->reasoning);
+            
+            // Check BannedTopicsResult
+            $this->assertEquals(['politics&lt;script&gt;', 'religion&lt;script&gt;'], $result->bannedTopics->bannedTopics);
+            $this->assertEquals(0.65, $result->bannedTopics->quantityOnBannedTopics);
+            $this->assertEquals(0.9, $result->bannedTopics->confidence);
+            $this->assertEquals('The comment contains banned topics with &lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt; and control chars that should be removed.', $result->bannedTopics->reasoning);
+            
             $assertionCalled = true;
         });
 

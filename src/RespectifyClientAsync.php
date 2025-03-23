@@ -346,7 +346,7 @@ class RespectifyClientAsync {
         return [
             'X-User-Email' => $this->email,
             'X-API-Key' => $this->apiKey,
-            'Content-Type' => 'application/x-www-form-urlencoded'
+            'Content-Type' => 'application/json'
         ];
     }
 
@@ -392,7 +392,7 @@ class RespectifyClientAsync {
     private function initTopic(array $data): PromiseInterface {
         return $this->client->post("{$this->baseUrl}/v{$this->version}/inittopic",
             $this->getHeaders(),
-            http_build_query($data)
+            json_encode($data)
         )->then(function (ResponseInterface $response) {
             if ($response->getStatusCode() === 200) {
                 try {
@@ -499,7 +499,7 @@ class RespectifyClientAsync {
     
         return $this->client->post("{$this->baseUrl}/v{$this->version}/commentscore",
             $this->getHeaders(),
-            http_build_query($data)
+            json_encode($data)
         )->then(function (ResponseInterface $response) {
             if ($response->getStatusCode() === 200) {
                 try {
@@ -606,7 +606,7 @@ class RespectifyClientAsync {
 
         return $this->client->post("{$this->baseUrl}/v{$this->version}/antispam",
             $this->getHeaders(),
-            http_build_query($data)
+            json_encode($data)
         )->then(function (ResponseInterface $response) {
             if ($response->getStatusCode() === 200) {
                 try {
@@ -661,13 +661,12 @@ class RespectifyClientAsync {
         ];
 
         if ($bannedTopics !== null && !empty($bannedTopics)) {
-            // For form-urlencoded, convert array to comma-separated string
-            $data['banned_topics'] = implode(',', $bannedTopics);
+            $data['banned_topics'] = $bannedTopics;
         }
 
         return $this->client->post("{$this->baseUrl}/v{$this->version}/commentrelevance",
             $this->getHeaders(),
-            http_build_query($data)
+            json_encode($data)
         )->then(function (ResponseInterface $response) {
             if ($response->getStatusCode() === 200) {
                 try {
