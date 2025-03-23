@@ -181,6 +181,11 @@ class CommentScore {
  */
 class SpamDetectionResult {
     /**
+     * Explanation for why the comment was classified as spam or not.
+     */
+    public string $reasoning;
+
+    /**
      * Indicates whether the comment is likely spam.
      */
     public bool $isSpam;
@@ -189,11 +194,6 @@ class SpamDetectionResult {
      * The confidence level (0.0 to 1.0) of the spam detection.
      */
     public float $confidence;
-    
-    /**
-     * Explanation for why the comment was classified as spam or not.
-     */
-    public string $reasoning;
 
     /**
      * SpamDetectionResult constructor. You should never need to call this. It is created
@@ -297,6 +297,38 @@ class CommentRelevanceResult {
     public function __construct(array $data) {
         $this->onTopic = new OnTopicResult($data['on_topic'] ?? []);
         $this->bannedTopics = new BannedTopicsResult($data['banned_topics'] ?? []);
+    }
+}
+
+/**
+ * Represents the results from a mega call, which can include any combination of
+ * spam detection, comment relevance, and comment score evaluations.
+ */
+class MegaCallResult {
+    /**
+     * The spam detection result, if requested.
+     */
+    public ?SpamDetectionResult $spam;
+    
+    /**
+     * The comment relevance result, if requested.
+     */
+    public ?CommentRelevanceResult $relevance;
+    
+    /**
+     * The comment score result, if requested.
+     */
+    public ?CommentScore $commentScore;
+    
+    /**
+     * MegaCallResult constructor. You should never need to call this. It is created
+     * internally by the Respectify client class when it gets a response.
+     * @param array $data The data to initialize the mega call result, coming from JSON.
+     */
+    public function __construct(array $data) {
+        $this->spam = isset($data['spam']) ? new SpamDetectionResult($data['spam'] ?? []) : null;
+        $this->relevance = isset($data['relevance']) ? new CommentRelevanceResult($data['relevance'] ?? []) : null;
+        $this->commentScore = isset($data['commentscore']) ? new CommentScore($data['commentscore'] ?? []) : null;
     }
 }
 
@@ -676,6 +708,85 @@ class RespectifyClientAsync {
                     $responseData = $this->sanitiseReturnedData($responseData);
                     
                     return new CommentRelevanceResult($responseData);
+                } catch (\Exception $e) {
+                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . ' from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
+                }
+            } else {
+                $this->handleError($response);
+            }
+        })->otherwise(function (\Exception $e) {
+            if ($e instanceof \React\Http\Message\ResponseException) {
+                $response = $e->getResponse();
+                $this->handleError($response);
+            } else {
+                throw $e;
+            }
+        });
+    }
+
+    /**
+     * Performs a "mega call" to evaluate a comment using multiple Respectify services in a single API call.
+     * This method allows you to run any combination of services in one API call.
+     *
+     * @param string $comment The comment text to evaluate
+     * @param string|null $articleContextId Optional. The article context UUID from initTopicFromText/initTopicFromUrl. Required for relevance and commentScore checks.
+     * @param array $services List of services to include in the call. Valid values: 'spam', 'relevance', 'commentscore'
+     * @param array|null $bannedTopics Optional. List of banned topics to check against when 'relevance' is included
+     * @param string|null $replyToComment Optional. The comment to which the evaluated comment is replying, used when 'commentscore' is included
+     * @return PromiseInterface<MegaCallResult> A promise that resolves to a MegaCallResult object containing the requested evaluations
+     * @throws BadRequestException
+     * @throws RespectifyException
+     */
+    public function megacall(
+        string $comment,
+        ?string $articleContextId = null,
+        array $services = ['spam', 'relevance', 'commentscore'],
+        ?array $bannedTopics = null,
+        ?string $replyToComment = null
+    ): PromiseInterface {
+        if (empty($comment)) {
+            throw new BadRequestException('Comment must be provided');
+        }
+
+        $includeSpam = in_array('spam', $services);
+        $includeRelevance = in_array('relevance', $services);
+        $includeCommentScore = in_array('commentscore', $services);
+
+        if (($includeRelevance || $includeCommentScore) && empty($articleContextId)) {
+            throw new BadRequestException('Article context ID must be provided for relevance or comment score checks');
+        }
+
+        $data = [
+            'comment' => $comment,
+            'include_spam' => $includeSpam,
+            'include_relevance' => $includeRelevance,
+            'include_commentscore' => $includeCommentScore
+        ];
+
+        if ($articleContextId !== null) {
+            $data['article_context_id'] = $articleContextId;
+        }
+
+        if ($includeRelevance && $bannedTopics !== null && !empty($bannedTopics)) {
+            $data['banned_topics'] = $bannedTopics;
+        }
+
+        if ($includeCommentScore && $replyToComment !== null) {
+            $data['reply_to_comment'] = $replyToComment;
+        }
+
+        return $this->client->post("{$this->baseUrl}/v{$this->version}/megacall",
+            $this->getHeaders(),
+            json_encode($data)
+        )->then(function (ResponseInterface $response) {
+            if ($response->getStatusCode() === 200) {
+                try {
+                    $responseData = json_decode((string)$response->getBody(), true);
+                    
+                    // Sanitize the response data
+                    $responseData = $this->sanitiseReturnedData($responseData);
+                    
+                    return new MegaCallResult($responseData);
                 } catch (\Exception $e) {
                     throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . ' from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
                 }
