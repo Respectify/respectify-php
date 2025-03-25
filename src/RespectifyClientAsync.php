@@ -758,9 +758,9 @@ class RespectifyClientAsync {
 
         $data = [
             'comment' => $comment,
-            'include_spam' => $includeSpam,
-            'include_relevance' => $includeRelevance,
-            'include_commentscore' => $includeCommentScore
+            'run_spam_check' => $includeSpam,
+            'run_relevance_check' => $includeRelevance,
+            'run_comment_score' => $includeCommentScore
         ];
 
         if ($articleContextId !== null) {
