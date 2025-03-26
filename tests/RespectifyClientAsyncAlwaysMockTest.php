@@ -31,7 +31,7 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
         $this->browserMock = m::mock(Browser::class);
         $this->loop = Loop::get();
         $email = 'mock-email@example.com';
-        $this->client = new RespectifyClientAsync($email, 'mock-api-key', $this->browserMock);
+        $this->client = new RespectifyClientAsync($email, 'mock-api-key');
 
         // Use reflection to set the private $client property
         $reflection = new \ReflectionClass($this->client);
@@ -231,12 +231,12 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
         $responseMock = m::mock(ResponseInterface::class);
         $responseMock->shouldReceive('getStatusCode')->andReturn(200);
         $responseMock->shouldReceive('getBody')->andReturn(json_encode([
-            'spam' => [
+            'spam_check' => [
                 'is_spam' => false,
                 'confidence' => 0.85,
                 'reasoning' => 'Comment not spam with <script>alert("xss")</script> and control chars that should be removed.'
             ],
-            'relevance' => [
+            'relevance_check' => [
                 'on_topic' => [
                     'reasoning' => 'The comment is on-topic with <script>alert("xss")</script> and control chars that should be removed.',
                     'on_topic' => true,
@@ -249,7 +249,7 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
                     'confidence' => 0.9
                 ]
             ],
-            'commentscore' => [
+            'comment_score' => [
                 'logical_fallacies' => [
                     [
                         'fallacy_name' => 'Ad Hominem',
