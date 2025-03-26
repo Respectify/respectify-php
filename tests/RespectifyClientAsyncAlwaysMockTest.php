@@ -8,6 +8,7 @@ use Respectify\RespectifyClientAsync;
 use Respectify\CommentScore;
 use Respectify\SpamDetectionResult;
 use Respectify\CommentRelevanceResult;
+use Respectify\MegaCallResult;
 use Respectify\Exceptions\BadRequestException;
 use Respectify\Exceptions\UnauthorizedException;
 use Respectify\Exceptions\UnsupportedMediaTypeException;
@@ -217,6 +218,120 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
             $this->assertEquals(0.65, $result->bannedTopics->quantityOnBannedTopics);
             $this->assertEquals(0.9, $result->bannedTopics->confidence);
             $this->assertEquals('The comment contains banned topics with &lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt; and control chars that should be removed.', $result->bannedTopics->reasoning);
+            
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+    
+    public function testMegacallSanitization() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'spam' => [
+                'is_spam' => false,
+                'confidence' => 0.85,
+                'reasoning' => 'Comment not spam with <script>alert("xss")</script> and control chars that should be removed.'
+            ],
+            'relevance' => [
+                'on_topic' => [
+                    'reasoning' => 'The comment is on-topic with <script>alert("xss")</script> and control chars that should be removed.',
+                    'on_topic' => true,
+                    'confidence' => 0.92
+                ],
+                'banned_topics' => [
+                    'reasoning' => 'Comment has banned topics with <script>alert("xss")</script> and control chars that should be removed.',
+                    'banned_topics' => ['politics<script>', 'religion<script>'],
+                    'quantity_on_banned_topics' => 0.65,
+                    'confidence' => 0.9
+                ]
+            ],
+            'commentscore' => [
+                'logical_fallacies' => [
+                    [
+                        'fallacy_name' => 'Ad Hominem',
+                        'quoted_logical_fallacy_example' => 'Fallacy with <script>alert("xss")</script> chars that should be removed.',
+                        'explanation_and_suggestions' => 'Explanation with <tags> to remove and sanitize.',
+                        'suggested_rewrite' => 'Rewrite with <tags> to sanitize.'
+                    ]
+                ],
+                'objectionable_phrases' => [
+                    [
+                        'quoted_objectionable_phrase' => 'Phrase with <script>alert("xss")</script> chars that should be removed.',
+                        'explanation' => 'Explanation with <tags> to remove and sanitize.',
+                        'suggested_rewrite' => 'Rewrite with <tags> to sanitize.'
+                    ]
+                ],
+                'negative_tone_phrases' => [],
+                'appears_low_effort' => false,
+                'overall_score' => 3
+            ]
+        ]));
+
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+
+        $promise = $this->client->megacall(
+            'This is a test megacall comment',
+            $this->testArticleId,
+            ['spam', 'relevance', 'commentscore']
+        );
+        $assertionCalled = false;
+
+        $promise->then(function ($result) use (&$assertionCalled) {
+            $this->assertInstanceOf(MegaCallResult::class, $result);
+            
+            // Check Spam Detection Result
+            $this->assertInstanceOf(SpamDetectionResult::class, $result->spam);
+            $this->assertFalse($result->spam->isSpam);
+            $this->assertEquals(0.85, $result->spam->confidence);
+            $this->assertStringContainsString('&lt;script&gt;', $result->spam->reasoning);
+            $this->assertStringContainsString('Comment not spam', $result->spam->reasoning);
+            
+            // Check Comment Relevance Result
+            $this->assertInstanceOf(CommentRelevanceResult::class, $result->relevance);
+            
+            // Check OnTopicResult
+            $this->assertIsBool($result->relevance->onTopic->onTopic);
+            $this->assertIsFloat($result->relevance->onTopic->confidence);
+            $this->assertGreaterThanOrEqual(0.0, $result->relevance->onTopic->confidence);
+            $this->assertLessThanOrEqual(1.0, $result->relevance->onTopic->confidence);
+            $this->assertIsString($result->relevance->onTopic->reasoning);
+            $this->assertNotEmpty($result->relevance->onTopic->reasoning);
+            
+            // Check BannedTopicsResult
+            $this->assertIsArray($result->relevance->bannedTopics->bannedTopics);
+            $this->assertIsFloat($result->relevance->bannedTopics->quantityOnBannedTopics);
+            $this->assertGreaterThanOrEqual(0.0, $result->relevance->bannedTopics->quantityOnBannedTopics);
+            $this->assertLessThanOrEqual(1.0, $result->relevance->bannedTopics->quantityOnBannedTopics);
+            $this->assertIsFloat($result->relevance->bannedTopics->confidence);
+            $this->assertGreaterThanOrEqual(0.0, $result->relevance->bannedTopics->confidence);
+            $this->assertLessThanOrEqual(1.0, $result->relevance->bannedTopics->confidence);
+            $this->assertIsString($result->relevance->bannedTopics->reasoning);
+            $this->assertNotEmpty($result->relevance->bannedTopics->reasoning);
+            
+            // Check Comment Score Result
+            $this->assertInstanceOf(CommentScore::class, $result->commentScore);
+            
+            // Check LogicalFallacy
+            $this->assertNotEmpty($result->commentScore->logicalFallacies);
+            $this->assertIsString($result->commentScore->logicalFallacies[0]->fallacyName);
+            $this->assertNotEmpty($result->commentScore->logicalFallacies[0]->fallacyName);
+            $this->assertIsString($result->commentScore->logicalFallacies[0]->quotedLogicalFallacyExample);
+            $this->assertNotEmpty($result->commentScore->logicalFallacies[0]->quotedLogicalFallacyExample);
+            $this->assertIsString($result->commentScore->logicalFallacies[0]->explanation);
+            $this->assertNotEmpty($result->commentScore->logicalFallacies[0]->explanation);
+            $this->assertIsString($result->commentScore->logicalFallacies[0]->suggestedRewrite);
+            
+            // Check ObjectionablePhrase
+            $this->assertNotEmpty($result->commentScore->objectionablePhrases);
+            $this->assertIsString($result->commentScore->objectionablePhrases[0]->quotedObjectionablePhrase);
+            $this->assertNotEmpty($result->commentScore->objectionablePhrases[0]->quotedObjectionablePhrase);
+            $this->assertIsString($result->commentScore->objectionablePhrases[0]->explanation);
+            $this->assertNotEmpty($result->commentScore->objectionablePhrases[0]->explanation);
+            $this->assertIsString($result->commentScore->objectionablePhrases[0]->suggestedRewrite);
             
             $assertionCalled = true;
         });

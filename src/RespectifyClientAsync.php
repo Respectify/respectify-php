@@ -304,7 +304,7 @@ class CommentRelevanceResult {
  * Represents the results from a mega call, which can include any combination of
  * spam detection, comment relevance, and comment score evaluations.
  */
-class MegaCallResult {
+class MegaCallResult implements \JsonSerializable {
     /**
      * The spam detection result, if requested.
      */
@@ -326,9 +326,22 @@ class MegaCallResult {
      * @param array $data The data to initialize the mega call result, coming from JSON.
      */
     public function __construct(array $data) {
-        $this->spam = isset($data['spam']) ? new SpamDetectionResult($data['spam'] ?? []) : null;
-        $this->relevance = isset($data['relevance']) ? new CommentRelevanceResult($data['relevance'] ?? []) : null;
-        $this->commentScore = isset($data['commentscore']) ? new CommentScore($data['commentscore'] ?? []) : null;
+        // Map API response keys to our expected keys
+        $this->spam = isset($data['spam_check']) ? new SpamDetectionResult($data['spam_check'] ?? []) : null;
+        $this->relevance = isset($data['relevance_check']) ? new CommentRelevanceResult($data['relevance_check'] ?? []) : null;
+        $this->commentScore = isset($data['comment_score']) ? new CommentScore($data['comment_score'] ?? []) : null;
+    }
+
+    /**
+     * Specify data which should be serialized to JSON
+     * @return array
+     */
+    public function jsonSerialize(): array {
+        return [
+            'spam' => $this->spam,
+            'relevance' => $this->relevance,
+            'commentScore' => $this->commentScore
+        ];
     }
 }
 
@@ -775,27 +788,56 @@ class RespectifyClientAsync {
             $data['reply_to_comment'] = $replyToComment;
         }
 
+        // Log the request data
+        echo "\nMegacall request data: " . json_encode($data, JSON_PRETTY_PRINT);
+        echo "\nRequest URL: {$this->baseUrl}/v{$this->version}/megacall";
+        echo "\nRequest headers: " . json_encode($this->getHeaders(), JSON_PRETTY_PRINT);
+
         return $this->client->post("{$this->baseUrl}/v{$this->version}/megacall",
             $this->getHeaders(),
             json_encode($data)
         )->then(function (ResponseInterface $response) {
             if ($response->getStatusCode() === 200) {
                 try {
+                    // Log the raw response first
+                    echo "\nMegacall raw response: " . (string)$response->getBody();
+                    
+                    // Decode the response data
                     $responseData = json_decode((string)$response->getBody(), true);
+                    echo "\nDecoded response data type: " . gettype($responseData);
+                    
+                    if ($responseData === null) {
+                        throw new JsonDecodingException('Failed to decode JSON response');
+                    }
                     
                     // Sanitize the response data
                     $responseData = $this->sanitiseReturnedData($responseData);
                     
-                    return new MegaCallResult($responseData);
+                    // Log the sanitized response
+                    echo "\nMegacall sanitized response: " . json_encode($responseData, JSON_PRETTY_PRINT);
+                    
+                    // Create the result object
+                    $result = new MegaCallResult($responseData);
+                    echo "\nMegaCallResult: " . json_encode($result, JSON_PRETTY_PRINT);
+                    return $result;
                 } catch (\Exception $e) {
+                    echo "\nError decoding JSON response: " . $e->getMessage();
+                    echo "\nResponse body: " . (string)$response->getBody();
                     throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . ' from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
                 }
             } else {
+                echo "\nError response status code: " . $response->getStatusCode();
+                echo "\nError response body: " . (string)$response->getBody();
                 $this->handleError($response);
             }
         })->otherwise(function (\Exception $e) {
+            echo "\nException in megacall: " . get_class($e) . ": " . $e->getMessage();
             if ($e instanceof \React\Http\Message\ResponseException) {
                 $response = $e->getResponse();
+                if ($response !== null) {
+                    echo "\nResponse status code: " . $response->getStatusCode();
+                    echo "\nResponse body: " . (string)$response->getBody();
+                }
                 $this->handleError($response);
             } else {
                 throw $e;
