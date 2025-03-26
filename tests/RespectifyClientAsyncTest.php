@@ -781,23 +781,10 @@ class RespectifyClientAsyncTest extends TestCase {
             return;
         }
 
-        // Make sure we have an article ID for the real API test
-        if (empty($this->testArticleId)) {
-            // Create a topic to get an article ID
-            $initPromise = $this->client->initTopicFromText('Sample test article for megacall relevance test');
-            $gotArticleId = false;
-            
-            $initPromise->then(function($articleId) use (&$gotArticleId) {
-                $this->testArticleId = $articleId;
-                $gotArticleId = true;
-            });
-            
-            $this->client->run();
-            $this->assertTrue($gotArticleId, 'Failed to get article ID for test');
-        }
+        assert(!empty($this->testArticleId));
         
         $promise = $this->client->megacall(
-            'This is a test comment for relevance check',
+            'Beartype is a great type checker for Python',
             $this->testArticleId,
             ['relevance'] // Only include relevance
         );
@@ -847,23 +834,10 @@ class RespectifyClientAsyncTest extends TestCase {
             return;
         }
 
-        // Make sure we have an article ID for the real API test
-        if (empty($this->testArticleId)) {
-            // Create a topic to get an article ID
-            $initPromise = $this->client->initTopicFromText('Sample test article for megacall comment score test');
-            $gotArticleId = false;
-            
-            $initPromise->then(function($articleId) use (&$gotArticleId) {
-                $this->testArticleId = $articleId;
-                $gotArticleId = true;
-            });
-            
-            $this->client->run();
-            $this->assertTrue($gotArticleId, 'Failed to get article ID for test');
-        }
+        assert(!empty($this->testArticleId));
         
         $promise = $this->client->megacall(
-            'This is a test comment for comment score check',
+            'This is a test comment for comment score check', # counts as low effort, but always get a result from this
             $this->testArticleId,
             ['commentscore'] // Only include comment score
         );
@@ -911,23 +885,10 @@ class RespectifyClientAsyncTest extends TestCase {
             return;
         }
 
-        // Make sure we have an article ID for the real API test
-        if (empty($this->testArticleId)) {
-            // Create a topic to get an article ID
-            $initPromise = $this->client->initTopicFromText('Sample test article for megacall spam and relevance test');
-            $gotArticleId = false;
-            
-            $initPromise->then(function($articleId) use (&$gotArticleId) {
-                $this->testArticleId = $articleId;
-                $gotArticleId = true;
-            });
-            
-            $this->client->run();
-            $this->assertTrue($gotArticleId, 'Failed to get article ID for test');
-        }
+        assert(!empty($this->testArticleId));
         
         $promise = $this->client->megacall(
-            'This is a test comment for spam and relevance check',
+            'Beartype is a great type checker for Python', # not spam, and highly relevant
             $this->testArticleId,
             ['spam', 'relevance'] // Include spam and relevance
         );
@@ -985,23 +946,10 @@ class RespectifyClientAsyncTest extends TestCase {
             return;
         }
 
-        // Make sure we have an article ID for the real API test
-        if (empty($this->testArticleId)) {
-            // Create a topic to get an article ID
-            $initPromise = $this->client->initTopicFromText('Sample test article for megacall relevance and comment score test');
-            $gotArticleId = false;
-            
-            $initPromise->then(function($articleId) use (&$gotArticleId) {
-                $this->testArticleId = $articleId;
-                $gotArticleId = true;
-            });
-            
-            $this->client->run();
-            $this->assertTrue($gotArticleId, 'Failed to get article ID for test');
-        }
+        assert(!empty($this->testArticleId));
         
         $promise = $this->client->megacall(
-            'This is a test comment for relevance and comment score check',
+            'Beartype is a great type checker for Python', # highly relevant, poor comment score
             $this->testArticleId,
             ['relevance', 'commentscore'] // Include relevance and comment score
         );
@@ -1061,23 +1009,10 @@ class RespectifyClientAsyncTest extends TestCase {
             return;
         }
 
-        // Make sure we have an article ID for the real API test
-        if (empty($this->testArticleId)) {
-            // Create a topic to get an article ID
-            $initPromise = $this->client->initTopicFromText('Sample test article for megacall spam and comment score test');
-            $gotArticleId = false;
-            
-            $initPromise->then(function($articleId) use (&$gotArticleId) {
-                $this->testArticleId = $articleId;
-                $gotArticleId = true;
-            });
-            
-            $this->client->run();
-            $this->assertTrue($gotArticleId, 'Failed to get article ID for test');
-        }
+        assert(!empty($this->testArticleId));
         
         $promise = $this->client->megacall(
-            'This is a test comment for spam and comment score check',
+            'Invest in Bitcoin at www.mycryptocoin.com',
             $this->testArticleId,
             ['spam', 'commentscore'] // Include spam and comment score
         );
@@ -1133,23 +1068,10 @@ class RespectifyClientAsyncTest extends TestCase {
             return;
         }
 
-        // Make sure we have an article ID for the real API test
-        if (empty($this->testArticleId)) {
-            // Create a topic to get an article ID
-            $initPromise = $this->client->initTopicFromText('Sample test article for megacall all services test');
-            $gotArticleId = false;
-            
-            $initPromise->then(function($articleId) use (&$gotArticleId) {
-                $this->testArticleId = $articleId;
-                $gotArticleId = true;
-            });
-            
-            $this->client->run();
-            $this->assertTrue($gotArticleId, 'Failed to get article ID for test');
-        }
+        assert(!empty($this->testArticleId));
         
         $promise = $this->client->megacall(
-            'This is a test comment for all services check',
+            'Beartype is great for all services.',
             $this->testArticleId,
             ['spam', 'relevance', 'commentscore'] // Include all services
         );
