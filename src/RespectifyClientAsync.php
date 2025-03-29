@@ -369,17 +369,22 @@ class RespectifyClientAsync {
      * Create an instance of the async Respectify API client.
      * @param string $email An email address.
      * @param string $apiKey A hex string representing the API key.
-     * @param string $baseUrl The base URL for the Respectify API.
-     * @param float $version The API version.
+     * @param string|null $baseUrl Optional. The base URL for the Respectify API. If not provided, uses the default.
+     * @param float|null $version Optional. The API version. If not provided, uses the default.
      * @return self
      */
-    public function __construct(string $email, string $apiKey, string $baseUrl = self::DEFAULT_BASE_URL, float $version = self::DEFAULT_VERSION) {
+    public function __construct(
+        string $email, 
+        string $apiKey, 
+        ?string $baseUrl = null, 
+        ?float $version = null
+    ) {
         $this->loop = Loop::get();
         $this->client = new Browser($this->loop);
         $this->email = $email;
         $this->apiKey = $apiKey;
-        $this->baseUrl = rtrim($baseUrl, '/');
-        $formatted_api_version = sprintf('%.1f', floatval($version)); // Always 1DP, eg, 1.0 or 0.2
+        $this->baseUrl = rtrim($baseUrl ?? self::DEFAULT_BASE_URL, '/');
+        $formatted_api_version = sprintf('%.1f', floatval($version ?? self::DEFAULT_VERSION)); // Always 1DP, eg, 1.0 or 0.2
         $this->version = $formatted_api_version;
     }
 
@@ -393,6 +398,15 @@ class RespectifyClientAsync {
             'X-API-Key' => $this->apiKey,
             'Content-Type' => 'application/json'
         ];
+    }
+
+    /**
+     * Get the full API URL for a given endpoint.
+     * @param string $endpoint The API endpoint path.
+     * @return string The complete API URL.
+     */
+    private function getApiUrl(string $endpoint): string {
+        return "{$this->baseUrl}/v{$this->version}/{$endpoint}";
     }
 
     /**
@@ -435,7 +449,8 @@ class RespectifyClientAsync {
      * @throws RespectifyException
      */
     private function initTopic(array $data): PromiseInterface {
-        return $this->client->post("{$this->baseUrl}/v{$this->version}/inittopic",
+        return $this->client->post(
+            $this->getApiUrl('inittopic'),
             $this->getHeaders(),
             json_encode($data)
         )->then(function (ResponseInterface $response) {
@@ -542,7 +557,8 @@ class RespectifyClientAsync {
             $data['reply_to_comment'] = $replyToComment;
         }
     
-        return $this->client->post("{$this->baseUrl}/v{$this->version}/commentscore",
+        return $this->client->post(
+            $this->getApiUrl('commentscore'),
             $this->getHeaders(),
             json_encode($data)
         )->then(function (ResponseInterface $response) {
@@ -584,7 +600,8 @@ class RespectifyClientAsync {
      * @throws JsonDecodingException
      */
     public function checkUserCredentials(): PromiseInterface {
-        return $this->client->get("{$this->baseUrl}/v{$this->version}/usercheck",
+        return $this->client->get(
+            $this->getApiUrl('usercheck'),
             $this->getHeaders()
         )->then(function (ResponseInterface $response) {
             // Only if got 200 OK - anything else should be a promise rejection for the 
@@ -649,7 +666,8 @@ class RespectifyClientAsync {
             $data['article_context_id'] = $articleContextId;
         }
 
-        return $this->client->post("{$this->baseUrl}/v{$this->version}/antispam",
+        return $this->client->post(
+            $this->getApiUrl('antispam'),
             $this->getHeaders(),
             json_encode($data)
         )->then(function (ResponseInterface $response) {
@@ -709,7 +727,8 @@ class RespectifyClientAsync {
             $data['banned_topics'] = $bannedTopics;
         }
 
-        return $this->client->post("{$this->baseUrl}/v{$this->version}/commentrelevance",
+        return $this->client->post(
+            $this->getApiUrl('commentrelevance'),
             $this->getHeaders(),
             json_encode($data)
         )->then(function (ResponseInterface $response) {
@@ -788,7 +807,8 @@ class RespectifyClientAsync {
             $data['reply_to_comment'] = $replyToComment;
         }
 
-        return $this->client->post("{$this->baseUrl}/v{$this->version}/megacall",
+        return $this->client->post(
+            $this->getApiUrl('megacall'),
             $this->getHeaders(),
             json_encode($data)
         )->then(function (ResponseInterface $response) {

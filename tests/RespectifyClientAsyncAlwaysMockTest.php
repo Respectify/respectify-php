@@ -70,11 +70,127 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
         $responseMock->shouldReceive('getStatusCode')->andReturn(200);
         $responseMock->shouldReceive('getBody')->andReturn(json_encode(['article_id' => '1234']));
 
-
         $formatted_api_version = sprintf('%.1f', floatval($customVersion)); // Always 1DP, eg, 1.0 or 0.2: this is what the RespectifyClientAsync does with the float param
         $this->browserMock->shouldReceive('post')
             ->withArgs(function ($url, $headers, $body) use ($customBaseUrl, $formatted_api_version) {
                 return $url === "{$customBaseUrl}/v{$formatted_api_version}/inittopic";
+            })
+            ->andReturn(resolve($responseMock));
+
+        $promise = $this->client->initTopicFromText('Sample text');
+        $assertionCalled = false;
+
+        $promise->then(function ($articleId) use (&$assertionCalled) {
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testCustomBaseUrlOnly() {
+        $customBaseUrl = 'https://custom.example.com';
+
+        $this->browserMock = m::mock(Browser::class);
+        $this->loop = Loop::get();
+        $email = 'mock-email@example.com';
+        $this->client = new RespectifyClientAsync($email, 'mock-api-key', $customBaseUrl);
+
+        // Use reflection to set the private $client property
+        $reflection = new \ReflectionClass($this->client);
+        $clientProperty = $reflection->getProperty('client');
+        $clientProperty->setAccessible(true);
+        $clientProperty->setValue($this->client, $this->browserMock);
+
+        // Get the default version constant using reflection
+        $defaultVersion = $reflection->getConstant('DEFAULT_VERSION');
+
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode(['article_id' => '1234']));
+
+        $this->browserMock->shouldReceive('post')
+            ->withArgs(function ($url, $headers, $body) use ($customBaseUrl, $defaultVersion) {
+                return $url === "{$customBaseUrl}/v{$defaultVersion}/inittopic";
+            })
+            ->andReturn(resolve($responseMock));
+
+        $promise = $this->client->initTopicFromText('Sample text');
+        $assertionCalled = false;
+
+        $promise->then(function ($articleId) use (&$assertionCalled) {
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testCustomVersionOnly() {
+        $customVersion = 1.0;
+
+        $this->browserMock = m::mock(Browser::class);
+        $this->loop = Loop::get();
+        $email = 'mock-email@example.com';
+        $this->client = new RespectifyClientAsync($email, 'mock-api-key', null, $customVersion);
+
+        // Use reflection to set the private $client property
+        $reflection = new \ReflectionClass($this->client);
+        $clientProperty = $reflection->getProperty('client');
+        $clientProperty->setAccessible(true);
+        $clientProperty->setValue($this->client, $this->browserMock);
+
+        // Get the default base URL constant using reflection
+        $defaultBaseUrl = $reflection->getConstant('DEFAULT_BASE_URL');
+
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode(['article_id' => '1234']));
+
+        $formatted_api_version = sprintf('%.1f', floatval($customVersion)); // Always 1DP, eg, 1.0 or 0.2
+        $this->browserMock->shouldReceive('post')
+            ->withArgs(function ($url, $headers, $body) use ($defaultBaseUrl, $formatted_api_version) {
+                return $url === "{$defaultBaseUrl}/v{$formatted_api_version}/inittopic";
+            })
+            ->andReturn(resolve($responseMock));
+
+        $promise = $this->client->initTopicFromText('Sample text');
+        $assertionCalled = false;
+
+        $promise->then(function ($articleId) use (&$assertionCalled) {
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testDefaultBaseUrlAndVersion() {
+        $this->browserMock = m::mock(Browser::class);
+        $this->loop = Loop::get();
+        $email = 'mock-email@example.com';
+        $this->client = new RespectifyClientAsync($email, 'mock-api-key');
+
+        // Use reflection to set the private $client property
+        $reflection = new \ReflectionClass($this->client);
+        $clientProperty = $reflection->getProperty('client');
+        $clientProperty->setAccessible(true);
+        $clientProperty->setValue($this->client, $this->browserMock);
+
+        // Get the default constants using reflection
+        $defaultBaseUrl = $reflection->getConstant('DEFAULT_BASE_URL');
+        $defaultVersion = $reflection->getConstant('DEFAULT_VERSION');
+
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode(['article_id' => '1234']));
+
+        $this->browserMock->shouldReceive('post')
+            ->withArgs(function ($url, $headers, $body) use ($defaultBaseUrl, $defaultVersion) {
+                return $url === "{$defaultBaseUrl}/v{$defaultVersion}/inittopic";
             })
             ->andReturn(resolve($responseMock));
 
