@@ -163,6 +163,17 @@ class CommentScore {
     public int $overallScore;
 
     /**
+     * A toxicity score from 0.0 to 1.0, where higher values indicate more toxic content.
+     */
+    public float $toxicityScore;
+
+    /**
+     * Educational explanation of toxicity issues found in the comment, if any.
+     * Empty string if no toxicity issues were found.
+     */
+    public string $toxicityExplanation;
+
+    /**
      * CommentScore constructor. You should never need to call this. It is created
      * internally by the Respectify client class when it gets a response.
      * @param array $data The data to initialize the comment score, coming from JSON.
@@ -173,6 +184,8 @@ class CommentScore {
         $this->negativeTonePhrases = array_map(fn($item) => new NegativeTonePhrase($item), $data['negative_tone_phrases'] ?? []);
         $this->appearsLowEffort = $data['appears_low_effort'] ?? false;
         $this->overallScore = $data['overall_score'] ?? 0;
+        $this->toxicityScore = floatval($data['toxicity_score'] ?? 0.0);
+        $this->toxicityExplanation = $data['toxicity_explanation'] ?? '';
     }
 }
 
@@ -301,8 +314,103 @@ class CommentRelevanceResult {
 }
 
 /**
+ * Represents the detection aspect of dogwhistle analysis.
+ */
+class DogwhistleDetection {
+    /**
+     * Explanation of the dogwhistle analysis reasoning.
+     */
+    public string $reasoning;
+    
+    /**
+     * Whether dogwhistles were detected in the comment.
+     */
+    public bool $dogwhistlesDetected;
+    
+    /**
+     * The confidence level (0.0 to 1.0) of the dogwhistle detection.
+     */
+    public float $confidence;
+    
+    /**
+     * DogwhistleDetection constructor. You should never need to call this. It is created
+     * internally by the Respectify client class when it gets a response.
+     * @param array $data The data to initialize the dogwhistle detection, coming from JSON.
+     */
+    public function __construct(array $data) {
+        $this->reasoning = $data['reasoning'] ?? '';
+        $this->dogwhistlesDetected = $data['dogwhistles_detected'] ?? false;
+        $this->confidence = floatval($data['confidence'] ?? 0.0);
+    }
+}
+
+/**
+ * Represents detailed information about detected dogwhistles.
+ */
+class DogwhistleDetails {
+    /**
+     * List of specific dogwhistle terms detected.
+     */
+    public array $dogwhistleTerms;
+    
+    /**
+     * Categories of dogwhistles detected.
+     */
+    public array $categories;
+    
+    /**
+     * Subtlety level of the dogwhistles (0.0 to 1.0).
+     */
+    public float $subtletyLevel;
+    
+    /**
+     * Potential harm level of the dogwhistles (0.0 to 1.0).
+     */
+    public float $harmPotential;
+    
+    /**
+     * DogwhistleDetails constructor. You should never need to call this. It is created
+     * internally by the Respectify client class when it gets a response.
+     * @param array $data The data to initialize the dogwhistle details, coming from JSON.
+     */
+    public function __construct(array $data) {
+        $this->dogwhistleTerms = $data['dogwhistle_terms'] ?? [];
+        $this->categories = $data['categories'] ?? [];
+        $this->subtletyLevel = floatval($data['subtlety_level'] ?? 0.0);
+        $this->harmPotential = floatval($data['harm_potential'] ?? 0.0);
+    }
+}
+
+/**
+ * Represents the results of a dogwhistle analysis evaluation by Respectify.
+ */
+class DogwhistleResult {
+    /**
+     * The dogwhistle detection analysis result.
+     */
+    public DogwhistleDetection $detection;
+    
+    /**
+     * Optional detailed information about detected dogwhistles.
+     */
+    public ?DogwhistleDetails $details;
+    
+    /**
+     * DogwhistleResult constructor. You should never need to call this. It is created
+     * internally by the Respectify client class when it gets a response.
+     * @param array $data The data to initialize the dogwhistle result, coming from JSON.
+     */
+    public function __construct(array $data) {
+        $this->detection = new DogwhistleDetection($data['detection'] ?? []);
+        $this->details = isset($data['details']) && !empty($data['details']) 
+            ? new DogwhistleDetails($data['details'])
+            : null;
+    }
+}
+
+/**
  * Represents the results from a mega call, which can include any combination of
- * spam detection, comment relevance, and comment score evaluations.
+ * spam detection, comment relevance, comment score, and dogwhistle evaluations.
  */
 class MegaCallResult implements \JsonSerializable {
     /**
@@ -321,6 +429,11 @@ class MegaCallResult implements \JsonSerializable {
     public ?CommentScore $commentScore;
     
     /**
+     * The dogwhistle analysis result, if requested.
+     */
+    public ?DogwhistleResult $dogwhistle;
+    
+    /**
      * MegaCallResult constructor. You should never need to call this. It is created
      * internally by the Respectify client class when it gets a response.
      * @param array $data The data to initialize the mega call result, coming from JSON.
@@ -330,6 +443,7 @@ class MegaCallResult implements \JsonSerializable {
         $this->spam = isset($data['spam_check']) ? new SpamDetectionResult($data['spam_check'] ?? []) : null;
         $this->relevance = isset($data['relevance_check']) ? new CommentRelevanceResult($data['relevance_check'] ?? []) : null;
         $this->commentScore = isset($data['comment_score']) ? new CommentScore($data['comment_score'] ?? []) : null;
+        $this->dogwhistle = isset($data['dogwhistle_check']) ? new DogwhistleResult($data['dogwhistle_check'] ?? []) : null;
     }
 
     /**
@@ -340,7 +454,8 @@ class MegaCallResult implements \JsonSerializable {
         return [
             'spam' => $this->spam,
             'relevance' => $this->relevance,
-            'commentScore' => $this->commentScore
+            'commentScore' => $this->commentScore,
+            'dogwhistle' => $this->dogwhistle
         ];
     }
 }
@@ -364,6 +479,7 @@ class RespectifyClientAsync {
     private string $apiKey;
     private string $baseUrl;
     private string $version;
+    private ?string $website;
 
     /**
      * Create an instance of the async Respectify API client.
@@ -371,13 +487,15 @@ class RespectifyClientAsync {
      * @param string $apiKey A hex string representing the API key.
      * @param string|null $baseUrl Optional. The base URL for the Respectify API. If not provided, uses the default.
      * @param float|null $version Optional. The API version. If not provided, uses the default.
+     * @param string|null $website Optional. The website domain for license tracking.
      * @return self
      */
     public function __construct(
         string $email, 
         string $apiKey, 
         ?string $baseUrl = null, 
-        ?float $version = null
+        ?float $version = null,
+        ?string $website = null
     ) {
         $this->loop = Loop::get();
         $this->client = new Browser($this->loop);
@@ -386,6 +504,7 @@ class RespectifyClientAsync {
         $this->baseUrl = rtrim($baseUrl ?? self::DEFAULT_BASE_URL, '/');
         $formatted_api_version = sprintf('%.1f', floatval($version ?? self::DEFAULT_VERSION)); // Always 1DP, eg, 1.0 or 0.2
         $this->version = $formatted_api_version;
+        $this->website = $website;
     }
 
     /**
@@ -393,11 +512,17 @@ class RespectifyClientAsync {
      * @return array<string, string> An associative array mapping HTTP request header names to header values.
     */
     private function getHeaders(): array {
-        return [
+        $headers = [
             'X-User-Email' => $this->email,
             'X-API-Key' => $this->apiKey,
             'Content-Type' => 'application/json'
         ];
+        
+        if ($this->website !== null) {
+            $headers['X-Website'] = $this->website;
+        }
+        
+        return $headers;
     }
 
     /**
@@ -757,14 +882,73 @@ class RespectifyClientAsync {
     }
 
     /**
+     * Analyzes a comment for dogwhistle content - coded language that appears reasonable but contains hidden meanings.
+     *
+     * @param string $articleContextId The article context UUID from initTopicFromText/initTopicFromUrl
+     * @param string $comment The comment text to analyze for dogwhistles
+     * @param array|null $sensitiveTopics Optional. List of sensitive topics to watch for
+     * @param array|null $dogwhistleExamples Optional. List of dogwhistle examples to look for
+     * @return PromiseInterface<DogwhistleResult> A promise that resolves to a DogwhistleResult object
+     * @throws BadRequestException If the request parameters are invalid
+     * @throws UnauthorizedException If the API credentials are invalid
+     * @throws UnsupportedMediaTypeException If the content type is not supported
+     * @throws JsonDecodingException If the JSON response cannot be decoded
+     * @throws RespectifyException For other API errors
+     */
+    public function checkDogwhistle(string $articleContextId, string $comment, ?array $sensitiveTopics = null, ?array $dogwhistleExamples = null): PromiseInterface {
+        $data = [
+            'article_context_id' => htmlspecialchars($articleContextId, ENT_QUOTES, 'UTF-8'),
+            'comment' => htmlspecialchars($comment, ENT_QUOTES, 'UTF-8')
+        ];
+        
+        if ($sensitiveTopics !== null && !empty($sensitiveTopics)) {
+            $data['sensitive_topics'] = array_map(fn($topic) => htmlspecialchars($topic, ENT_QUOTES, 'UTF-8'), $sensitiveTopics);
+        }
+        
+        if ($dogwhistleExamples !== null && !empty($dogwhistleExamples)) {
+            $data['dogwhistle_examples'] = array_map(fn($example) => htmlspecialchars($example, ENT_QUOTES, 'UTF-8'), $dogwhistleExamples);
+        }
+
+        return $this->client->post(
+            $this->getApiUrl('dogwhistle'),
+            $this->getHeaders(),
+            json_encode($data)
+        )->then(function (ResponseInterface $response) {
+            if ($response->getStatusCode() === 200) {
+                try {
+                    $responseData = json_decode((string)$response->getBody(), true);
+                    
+                    // Sanitize the response data
+                    $responseData = $this->sanitiseReturnedData($responseData);
+                    
+                    return new DogwhistleResult($responseData);
+                } catch (\Exception $e) {
+                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . ' from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
+                }
+            } else {
+                $this->handleError($response);
+            }
+        })->otherwise(function (\Exception $e) {
+            if ($e instanceof \React\Http\Message\ResponseException) {
+                $response = $e->getResponse();
+                $this->handleError($response);
+            } else {
+                throw $e;
+            }
+        });
+    }
+
+    /**
      * Performs a "mega call" to evaluate a comment using multiple Respectify services in a single API call.
      * This method allows you to run any combination of services in one API call.
      *
      * @param string $comment The comment text to evaluate
-     * @param string|null $articleContextId Optional. The article context UUID from initTopicFromText/initTopicFromUrl. Required for relevance and commentScore checks.
-     * @param array $services List of services to include in the call. Valid values: 'spam', 'relevance', 'commentscore'
+     * @param string|null $articleContextId Optional. The article context UUID from initTopicFromText/initTopicFromUrl. Required for relevance, commentScore, and dogwhistle checks.
+     * @param array $services List of services to include in the call. Valid values: 'spam', 'relevance', 'commentscore', 'dogwhistle'
      * @param array|null $bannedTopics Optional. List of banned topics to check against when 'relevance' is included
      * @param string|null $replyToComment Optional. The comment to which the evaluated comment is replying, used when 'commentscore' is included
+     * @param array|null $sensitiveTopics Optional. List of sensitive topics to watch for when 'dogwhistle' is included
+     * @param array|null $dogwhistleExamples Optional. List of dogwhistle examples to look for when 'dogwhistle' is included
      * @return PromiseInterface<MegaCallResult> A promise that resolves to a MegaCallResult object containing the requested evaluations
      * @throws BadRequestException
      * @throws RespectifyException
@@ -774,7 +958,9 @@ class RespectifyClientAsync {
         ?string $articleContextId = null,
         array $services = ['spam', 'relevance', 'commentscore'],
         ?array $bannedTopics = null,
-        ?string $replyToComment = null
+        ?string $replyToComment = null,
+        ?array $sensitiveTopics = null,
+        ?array $dogwhistleExamples = null
     ): PromiseInterface {
         if (empty($comment)) {
             throw new BadRequestException('Comment must be provided');
@@ -783,16 +969,18 @@ class RespectifyClientAsync {
         $includeSpam = in_array('spam', $services);
         $includeRelevance = in_array('relevance', $services);
         $includeCommentScore = in_array('commentscore', $services);
+        $includeDogwhistle = in_array('dogwhistle', $services);
 
-        if (($includeRelevance || $includeCommentScore) && empty($articleContextId)) {
-            throw new BadRequestException('Article context ID must be provided for relevance or comment score checks');
+        if (($includeRelevance || $includeCommentScore || $includeDogwhistle) && empty($articleContextId)) {
+            throw new BadRequestException('Article context ID must be provided for relevance, comment score, or dogwhistle checks');
         }
 
         $data = [
             'comment' => $comment,
             'run_spam_check' => $includeSpam,
             'run_relevance_check' => $includeRelevance,
-            'run_comment_score' => $includeCommentScore
+            'run_comment_score' => $includeCommentScore,
+            'run_dogwhistle_check' => $includeDogwhistle
         ];
 
         if ($articleContextId !== null) {
@@ -805,6 +993,14 @@ class RespectifyClientAsync {
 
         if ($includeCommentScore && $replyToComment !== null) {
             $data['reply_to_comment'] = $replyToComment;
+        }
+
+        if ($includeDogwhistle && $sensitiveTopics !== null && !empty($sensitiveTopics)) {
+            $data['sensitive_topics'] = array_map(fn($topic) => htmlspecialchars($topic, ENT_QUOTES, 'UTF-8'), $sensitiveTopics);
+        }
+
+        if ($includeDogwhistle && $dogwhistleExamples !== null && !empty($dogwhistleExamples)) {
+            $data['dogwhistle_examples'] = array_map(fn($example) => htmlspecialchars($example, ENT_QUOTES, 'UTF-8'), $dogwhistleExamples);
         }
 
         return $this->client->post(
