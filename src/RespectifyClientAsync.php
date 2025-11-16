@@ -607,15 +607,20 @@ class RespectifyClientAsync {
      * Initialize a Respectify topic, using plain text or Markdown.
      *
      * @param string $text The text content to initialize the topic.
+     * @param string|null $topicDescription Optional description of the topic to provide additional context.
      * @return PromiseInterface<string> A [promise](https://reactphp.org/promise/#promiseinterface) that resolves to the article ID. This is a string containing a UUID. You must keep this (eg, store it in a database) to use in future when evaluating comments written about this topic.
      * @throws BadRequestException
      * @throws RespectifyException
      */
-    public function initTopicFromText(string $text): PromiseInterface {
+    public function initTopicFromText(string $text, ?string $topicDescription = null): PromiseInterface {
         if (empty($text)) {
             throw new BadRequestException('Text must be provided'); // Server will reply with a 400 Bad Request anyway, this is faster
         }
-        return $this->initTopic(['text' => $text]);
+        $data = ['text' => $text];
+        if ($topicDescription !== null && !empty($topicDescription)) {
+            $data['topic_description'] = $topicDescription;
+        }
+        return $this->initTopic($data);
     }
 
     /**
@@ -625,15 +630,20 @@ class RespectifyClientAsync {
      *  * Check [the REST API documentation](/api/initialize-topic) for a full list of the supported media types.
      *
      * @param string $url The URL pointing to the content to initialize the topic.
+     * @param string|null $topicDescription Optional description of the topic to provide additional context.
      * @return PromiseInterface<string> A [promise](https://reactphp.org/promise/#promiseinterface) that resolves to the article ID as a UUID string.
      * @throws BadRequestException
      * @throws RespectifyException
      */
-    public function initTopicFromUrl(string $url): PromiseInterface {
+    public function initTopicFromUrl(string $url, ?string $topicDescription = null): PromiseInterface {
         if (empty($url)) {
             throw new BadRequestException('URL must be provided'); // Server will reply with a 400 Bad Request anyway, this is faster
         }
-        return $this->initTopic(['url' => $url]);
+        $data = ['url' => $url];
+        if ($topicDescription !== null && !empty($topicDescription)) {
+            $data['topic_description'] = $topicDescription;
+        }
+        return $this->initTopic($data);
     }
 
     /**
@@ -897,16 +907,16 @@ class RespectifyClientAsync {
      */
     public function checkDogwhistle(string $articleContextId, string $comment, ?array $sensitiveTopics = null, ?array $dogwhistleExamples = null): PromiseInterface {
         $data = [
-            'article_context_id' => htmlspecialchars($articleContextId, ENT_QUOTES, 'UTF-8'),
-            'comment' => htmlspecialchars($comment, ENT_QUOTES, 'UTF-8')
+            'article_context_id' => $articleContextId,
+            'comment' => $comment
         ];
-        
+
         if ($sensitiveTopics !== null && !empty($sensitiveTopics)) {
-            $data['sensitive_topics'] = array_map(fn($topic) => htmlspecialchars($topic, ENT_QUOTES, 'UTF-8'), $sensitiveTopics);
+            $data['sensitive_topics'] = $sensitiveTopics;
         }
-        
+
         if ($dogwhistleExamples !== null && !empty($dogwhistleExamples)) {
-            $data['dogwhistle_examples'] = array_map(fn($example) => htmlspecialchars($example, ENT_QUOTES, 'UTF-8'), $dogwhistleExamples);
+            $data['dogwhistle_examples'] = $dogwhistleExamples;
         }
 
         return $this->client->post(
@@ -996,11 +1006,11 @@ class RespectifyClientAsync {
         }
 
         if ($includeDogwhistle && $sensitiveTopics !== null && !empty($sensitiveTopics)) {
-            $data['sensitive_topics'] = array_map(fn($topic) => htmlspecialchars($topic, ENT_QUOTES, 'UTF-8'), $sensitiveTopics);
+            $data['sensitive_topics'] = $sensitiveTopics;
         }
 
         if ($includeDogwhistle && $dogwhistleExamples !== null && !empty($dogwhistleExamples)) {
-            $data['dogwhistle_examples'] = array_map(fn($example) => htmlspecialchars($example, ENT_QUOTES, 'UTF-8'), $dogwhistleExamples);
+            $data['dogwhistle_examples'] = $dogwhistleExamples;
         }
 
         return $this->client->post(
