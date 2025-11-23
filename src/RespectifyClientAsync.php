@@ -125,15 +125,31 @@ class RespectifyClientAsync {
             }
             throw new RespectifyException('Unknown error occurred');
         }
+
+        // Try to get error details from response body
+        $body = (string)$response->getBody();
+        $errorDetails = '';
+        if (!empty($body)) {
+            $decoded = json_decode($body, true);
+            if (isset($decoded['title'])) {
+                $errorDetails = ': ' . $decoded['title'];
+                if (isset($decoded['description'])) {
+                    $errorDetails .= ' - ' . $decoded['description'];
+                }
+            } else {
+                $errorDetails = ': ' . substr($body, 0, 200);
+            }
+        }
+
         switch ($response->getStatusCode()) {
             case 400:
-                throw new BadRequestException('Bad Request: ' . htmlspecialchars($response->getReasonPhrase(), ENT_QUOTES, 'UTF-8'));
+                throw new BadRequestException('Bad Request' . $errorDetails);
             case 401:
-                throw new UnauthorizedException('Unauthorized: ' . htmlspecialchars($response->getReasonPhrase(), ENT_QUOTES, 'UTF-8'));
+                throw new UnauthorizedException('Unauthorized' . $errorDetails);
             case 415:
-                throw new UnsupportedMediaTypeException('Unsupported Media Type: ' . htmlspecialchars($response->getReasonPhrase(), ENT_QUOTES, 'UTF-8'));
+                throw new UnsupportedMediaTypeException('Unsupported Media Type' . $errorDetails);
             default:
-                throw new RespectifyException('Error: ' . htmlspecialchars((string)$response->getStatusCode(), ENT_QUOTES, 'UTF-8') . ' - ' . htmlspecialchars($response->getReasonPhrase(), ENT_QUOTES, 'UTF-8'));
+                throw new RespectifyException('Error ' . $response->getStatusCode() . $errorDetails);
         }
     }
 

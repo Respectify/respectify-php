@@ -209,16 +209,22 @@ class RespectifyClientAsyncTest extends TestCase {
     public function testCheckUserCredentialsSuccess() {
         $promise = $this->client->checkUserCredentials();
         $assertionCalled = false;
+        $errorMessage = null;
 
         $promise->then(function ($result) use (&$assertionCalled) {
             [$success, $info] = $result;
             $this->assertTrue($success, 'checkUserCredentials success is unexpectedly not true');
-            $this->assertEquals('', $info);
+            $this->assertEquals('Authentication successful', $info);
             $assertionCalled = true;
+        }, function ($error) use (&$errorMessage) {
+            $errorMessage = 'Promise rejected: ' . (string)$error;
         });
 
         $this->client->run();
 
+        if ($errorMessage !== null) {
+            $this->fail($errorMessage);
+        }
         $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
     }
 
@@ -777,7 +783,7 @@ class RespectifyClientAsyncTest extends TestCase {
 
     public function testCheckDogwhistleSuccess() {
         assert(!empty($this->testArticleId));
-        
+
         $promise = $this->client->checkDogwhistle(
             $this->testArticleId,
             'This is a regular comment with no problematic content.'
@@ -785,10 +791,10 @@ class RespectifyClientAsyncTest extends TestCase {
         $assertionCalled = false;
 
         $promise->then(function ($result) use (&$assertionCalled) {
-            $this->assertInstanceOf(\Respectify\DogwhistleResult::class, $result);
-            
+            $this->assertInstanceOf(\Respectify\Schemas\DogwhistleResult::class, $result);
+
             // Check Detection Result
-            $this->assertInstanceOf(\Respectify\DogwhistleDetection::class, $result->detection);
+            $this->assertInstanceOf(\Respectify\Schemas\DogwhistleDetection::class, $result->detection);
             $this->assertIsString($result->detection->reasoning);
             $this->assertIsBool($result->detection->dogwhistlesDetected);
             $this->assertIsFloat($result->detection->confidence);
@@ -833,8 +839,8 @@ class RespectifyClientAsyncTest extends TestCase {
         $assertionCalled = false;
 
         $promise->then(function ($result) use (&$assertionCalled) {
-            $this->assertInstanceOf(\Respectify\DogwhistleResult::class, $result);
-            $this->assertInstanceOf(\Respectify\DogwhistleDetection::class, $result->detection);
+            $this->assertInstanceOf(\Respectify\Schemas\DogwhistleResult::class, $result);
+            $this->assertInstanceOf(\Respectify\Schemas\DogwhistleDetection::class, $result->detection);
             $this->assertIsString($result->detection->reasoning);
             $this->assertIsBool($result->detection->dogwhistlesDetected);
             $this->assertIsFloat($result->detection->confidence);
@@ -872,19 +878,19 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->assertIsString($result->spamCheck->reasoning);
             
             // Check Dogwhistle Result
-            $this->assertInstanceOf(\Respectify\DogwhistleResult::class, $result->dogwhistle);
-            $this->assertInstanceOf(\Respectify\DogwhistleDetection::class, $result->dogwhistle->detection);
-            $this->assertIsString($result->dogwhistle->detection->reasoning);
-            $this->assertIsBool($result->dogwhistle->detection->dogwhistlesDetected);
-            $this->assertIsFloat($result->dogwhistle->detection->confidence);
-            
+            $this->assertInstanceOf(\Respectify\Schemas\DogwhistleResult::class, $result->dogwhistleCheck);
+            $this->assertInstanceOf(\Respectify\Schemas\DogwhistleDetection::class, $result->dogwhistleCheck->detection);
+            $this->assertIsString($result->dogwhistleCheck->detection->reasoning);
+            $this->assertIsBool($result->dogwhistleCheck->detection->dogwhistlesDetected);
+            $this->assertIsFloat($result->dogwhistleCheck->detection->confidence);
+
             // Other services should be null
             $this->assertNull($result->relevanceCheck);
             $this->assertNull($result->commentScore);
-            
+
             echo "\nMegacall with dogwhistle succeeded with real API";
             echo "\nSpam detected: " . ($result->spamCheck->isSpam ? 'Yes' : 'No');
-            echo "\nDogwhistles detected: " . ($result->dogwhistle->detection->dogwhistlesDetected ? 'Yes' : 'No');
+            echo "\nDogwhistles detected: " . ($result->dogwhistleCheck->detection->dogwhistlesDetected ? 'Yes' : 'No');
             
             $assertionCalled = true;
         }, function ($error) use (&$assertionCalled) {
@@ -917,14 +923,14 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->assertInstanceOf(SpamDetectionResult::class, $result->spamCheck);
             $this->assertInstanceOf(CommentRelevanceResult::class, $result->relevanceCheck);
             $this->assertInstanceOf(CommentScore::class, $result->commentScore);
-            $this->assertInstanceOf(\Respectify\DogwhistleResult::class, $result->dogwhistle);
-            
+            $this->assertInstanceOf(\Respectify\Schemas\DogwhistleResult::class, $result->dogwhistleCheck);
+
             // Basic validation for each service
             $this->assertIsBool($result->spamCheck->isSpam);
             $this->assertIsBool($result->relevanceCheck->onTopic->onTopic);
             $this->assertIsInt($result->commentScore->overallScore);
             $this->assertIsFloat($result->commentScore->toxicityScore);
-            $this->assertIsBool($result->dogwhistle->detection->dogwhistlesDetected);
+            $this->assertIsBool($result->dogwhistleCheck->detection->dogwhistlesDetected);
             
             echo "\nMegacall all services with dogwhistle succeeded with real API";
             echo "\nAll four services (spam, relevance, commentscore, dogwhistle) returned results";
