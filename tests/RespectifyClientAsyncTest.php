@@ -40,6 +40,12 @@ class RespectifyClientAsyncTest extends TestCase {
         $dotenv->load();
 
         // This test file is for real API testing only
+        // Skip all tests if USE_REAL_API is not set to true
+        $useRealApi = isset($_ENV['USE_REAL_API']) && $_ENV['USE_REAL_API'] === 'true';
+        if (!$useRealApi) {
+            $this->markTestSkipped('Skipping real API tests - USE_REAL_API is not set to true in tests/.env');
+        }
+
         $email = $_ENV['RESPECTIFY_EMAIL'];
         $apiKey = $_ENV['RESPECTIFY_API_KEY'];
         $baseUrl = $_ENV['RESPECTIFY_BASE_URL'] ?? null;
@@ -444,19 +450,19 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->assertInstanceOf(MegaCallResult::class, $result);
             
             // Check Spam Detection Result
-            $this->assertInstanceOf(SpamDetectionResult::class, $result->spam);
-            $this->assertIsBool($result->spam->isSpam);
-            $this->assertIsFloat($result->spam->confidence);
-            $this->assertGreaterThanOrEqual(0.0, $result->spam->confidence);
-            $this->assertLessThanOrEqual(1.0, $result->spam->confidence);
-            $this->assertIsString($result->spam->reasoning);
+            $this->assertInstanceOf(SpamDetectionResult::class, $result->spamCheck);
+            $this->assertIsBool($result->spamCheck->isSpam);
+            $this->assertIsFloat($result->spamCheck->confidence);
+            $this->assertGreaterThanOrEqual(0.0, $result->spamCheck->confidence);
+            $this->assertLessThanOrEqual(1.0, $result->spamCheck->confidence);
+            $this->assertIsString($result->spamCheck->reasoning);
             
             // Make sure other services were not included
-            $this->assertNull($result->relevance);
+            $this->assertNull($result->relevanceCheck);
             $this->assertNull($result->commentScore);
             
             echo "\nMegacall spam only succeeded with real API";
-            echo "\nSpam confidence: " . number_format($result->spam->confidence, 2);
+            echo "\nSpam confidence: " . number_format($result->spamCheck->confidence, 2);
             
             $assertionCalled = true;
         }, function ($error) use (&$assertionCalled) {
@@ -486,23 +492,23 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->assertInstanceOf(MegaCallResult::class, $result);
             
             // Check Comment Relevance Result
-            $this->assertInstanceOf(CommentRelevanceResult::class, $result->relevance);
-            $this->assertIsBool($result->relevance->onTopic->onTopic);
-            $this->assertIsFloat($result->relevance->onTopic->confidence);
-            $this->assertGreaterThanOrEqual(0.0, $result->relevance->onTopic->confidence);
-            $this->assertLessThanOrEqual(1.0, $result->relevance->onTopic->confidence);
-            $this->assertIsString($result->relevance->onTopic->reasoning);
-            $this->assertIsArray($result->relevance->bannedTopics->bannedTopics);
-            $this->assertIsFloat($result->relevance->bannedTopics->quantityOnBannedTopics);
-            $this->assertGreaterThanOrEqual(0.0, $result->relevance->bannedTopics->quantityOnBannedTopics);
-            $this->assertLessThanOrEqual(1.0, $result->relevance->bannedTopics->quantityOnBannedTopics);
+            $this->assertInstanceOf(CommentRelevanceResult::class, $result->relevanceCheck);
+            $this->assertIsBool($result->relevanceCheck->onTopic->onTopic);
+            $this->assertIsFloat($result->relevanceCheck->onTopic->confidence);
+            $this->assertGreaterThanOrEqual(0.0, $result->relevanceCheck->onTopic->confidence);
+            $this->assertLessThanOrEqual(1.0, $result->relevanceCheck->onTopic->confidence);
+            $this->assertIsString($result->relevanceCheck->onTopic->reasoning);
+            $this->assertIsArray($result->relevanceCheck->bannedTopics->bannedTopics);
+            $this->assertIsFloat($result->relevanceCheck->bannedTopics->quantityOnBannedTopics);
+            $this->assertGreaterThanOrEqual(0.0, $result->relevanceCheck->bannedTopics->quantityOnBannedTopics);
+            $this->assertLessThanOrEqual(1.0, $result->relevanceCheck->bannedTopics->quantityOnBannedTopics);
             
             // Make sure other services were not included
-            $this->assertNull($result->spam);
+            $this->assertNull($result->spamCheck);
             $this->assertNull($result->commentScore);
             
             echo "\nMegacall relevance only succeeded with real API";
-            echo "\nOn topic confidence: " . number_format($result->relevance->onTopic->confidence, 2);
+            echo "\nOn topic confidence: " . number_format($result->relevanceCheck->onTopic->confidence, 2);
             
             $assertionCalled = true;
         }, function ($error) use (&$assertionCalled) {
@@ -538,8 +544,8 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->assertLessThanOrEqual(5, $result->commentScore->overallScore);
             
             // Make sure other services were not included
-            $this->assertNull($result->spam);
-            $this->assertNull($result->relevance);
+            $this->assertNull($result->spamCheck);
+            $this->assertNull($result->relevanceCheck);
             
             echo "\nMegacall comment score only succeeded with real API";
             echo "\nComment score: " . $result->commentScore->overallScore . "/5";
@@ -568,31 +574,31 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->assertInstanceOf(MegaCallResult::class, $result);
             
             // Check Spam Detection Result
-            $this->assertInstanceOf(SpamDetectionResult::class, $result->spam);
-            $this->assertIsBool($result->spam->isSpam);
-            $this->assertIsFloat($result->spam->confidence);
-            $this->assertGreaterThanOrEqual(0.0, $result->spam->confidence);
-            $this->assertLessThanOrEqual(1.0, $result->spam->confidence);
-            $this->assertIsString($result->spam->reasoning);
+            $this->assertInstanceOf(SpamDetectionResult::class, $result->spamCheck);
+            $this->assertIsBool($result->spamCheck->isSpam);
+            $this->assertIsFloat($result->spamCheck->confidence);
+            $this->assertGreaterThanOrEqual(0.0, $result->spamCheck->confidence);
+            $this->assertLessThanOrEqual(1.0, $result->spamCheck->confidence);
+            $this->assertIsString($result->spamCheck->reasoning);
             
             // Check Comment Relevance Result
-            $this->assertInstanceOf(CommentRelevanceResult::class, $result->relevance);
-            $this->assertIsBool($result->relevance->onTopic->onTopic);
-            $this->assertIsFloat($result->relevance->onTopic->confidence);
-            $this->assertGreaterThanOrEqual(0.0, $result->relevance->onTopic->confidence);
-            $this->assertLessThanOrEqual(1.0, $result->relevance->onTopic->confidence);
-            $this->assertIsString($result->relevance->onTopic->reasoning);
-            $this->assertIsArray($result->relevance->bannedTopics->bannedTopics);
-            $this->assertIsFloat($result->relevance->bannedTopics->quantityOnBannedTopics);
-            $this->assertGreaterThanOrEqual(0.0, $result->relevance->bannedTopics->quantityOnBannedTopics);
-            $this->assertLessThanOrEqual(1.0, $result->relevance->bannedTopics->quantityOnBannedTopics);
+            $this->assertInstanceOf(CommentRelevanceResult::class, $result->relevanceCheck);
+            $this->assertIsBool($result->relevanceCheck->onTopic->onTopic);
+            $this->assertIsFloat($result->relevanceCheck->onTopic->confidence);
+            $this->assertGreaterThanOrEqual(0.0, $result->relevanceCheck->onTopic->confidence);
+            $this->assertLessThanOrEqual(1.0, $result->relevanceCheck->onTopic->confidence);
+            $this->assertIsString($result->relevanceCheck->onTopic->reasoning);
+            $this->assertIsArray($result->relevanceCheck->bannedTopics->bannedTopics);
+            $this->assertIsFloat($result->relevanceCheck->bannedTopics->quantityOnBannedTopics);
+            $this->assertGreaterThanOrEqual(0.0, $result->relevanceCheck->bannedTopics->quantityOnBannedTopics);
+            $this->assertLessThanOrEqual(1.0, $result->relevanceCheck->bannedTopics->quantityOnBannedTopics);
             
             // Make sure comment score was not included
             $this->assertNull($result->commentScore);
             
             echo "\nMegacall spam and relevance succeeded with real API";
-            echo "\nSpam confidence: " . number_format($result->spam->confidence, 2);
-            echo "\nOn topic confidence: " . number_format($result->relevance->onTopic->confidence, 2);
+            echo "\nSpam confidence: " . number_format($result->spamCheck->confidence, 2);
+            echo "\nOn topic confidence: " . number_format($result->relevanceCheck->onTopic->confidence, 2);
             
             $assertionCalled = true;
         }, function ($error) use (&$assertionCalled) {
@@ -618,16 +624,16 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->assertInstanceOf(MegaCallResult::class, $result);
             
             // Check Comment Relevance Result
-            $this->assertInstanceOf(CommentRelevanceResult::class, $result->relevance);
-            $this->assertIsBool($result->relevance->onTopic->onTopic);
-            $this->assertIsFloat($result->relevance->onTopic->confidence);
-            $this->assertGreaterThanOrEqual(0.0, $result->relevance->onTopic->confidence);
-            $this->assertLessThanOrEqual(1.0, $result->relevance->onTopic->confidence);
-            $this->assertIsString($result->relevance->onTopic->reasoning);
-            $this->assertIsArray($result->relevance->bannedTopics->bannedTopics);
-            $this->assertIsFloat($result->relevance->bannedTopics->quantityOnBannedTopics);
-            $this->assertGreaterThanOrEqual(0.0, $result->relevance->bannedTopics->quantityOnBannedTopics);
-            $this->assertLessThanOrEqual(1.0, $result->relevance->bannedTopics->quantityOnBannedTopics);
+            $this->assertInstanceOf(CommentRelevanceResult::class, $result->relevanceCheck);
+            $this->assertIsBool($result->relevanceCheck->onTopic->onTopic);
+            $this->assertIsFloat($result->relevanceCheck->onTopic->confidence);
+            $this->assertGreaterThanOrEqual(0.0, $result->relevanceCheck->onTopic->confidence);
+            $this->assertLessThanOrEqual(1.0, $result->relevanceCheck->onTopic->confidence);
+            $this->assertIsString($result->relevanceCheck->onTopic->reasoning);
+            $this->assertIsArray($result->relevanceCheck->bannedTopics->bannedTopics);
+            $this->assertIsFloat($result->relevanceCheck->bannedTopics->quantityOnBannedTopics);
+            $this->assertGreaterThanOrEqual(0.0, $result->relevanceCheck->bannedTopics->quantityOnBannedTopics);
+            $this->assertLessThanOrEqual(1.0, $result->relevanceCheck->bannedTopics->quantityOnBannedTopics);
             
             // Check Comment Score Result
             $this->assertInstanceOf(CommentScore::class, $result->commentScore);
@@ -640,10 +646,10 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->assertLessThanOrEqual(5, $result->commentScore->overallScore);
             
             // Make sure spam was not included
-            $this->assertNull($result->spam);
+            $this->assertNull($result->spamCheck);
             
             echo "\nMegacall relevance and comment score succeeded with real API";
-            echo "\nOn topic confidence: " . number_format($result->relevance->onTopic->confidence, 2);
+            echo "\nOn topic confidence: " . number_format($result->relevanceCheck->onTopic->confidence, 2);
             echo "\nComment score: " . $result->commentScore->overallScore . "/5";
             
             $assertionCalled = true;
@@ -670,12 +676,12 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->assertInstanceOf(MegaCallResult::class, $result);
             
             // Check Spam Detection Result
-            $this->assertInstanceOf(SpamDetectionResult::class, $result->spam);
-            $this->assertIsBool($result->spam->isSpam);
-            $this->assertIsFloat($result->spam->confidence);
-            $this->assertGreaterThanOrEqual(0.0, $result->spam->confidence);
-            $this->assertLessThanOrEqual(1.0, $result->spam->confidence);
-            $this->assertIsString($result->spam->reasoning);
+            $this->assertInstanceOf(SpamDetectionResult::class, $result->spamCheck);
+            $this->assertIsBool($result->spamCheck->isSpam);
+            $this->assertIsFloat($result->spamCheck->confidence);
+            $this->assertGreaterThanOrEqual(0.0, $result->spamCheck->confidence);
+            $this->assertLessThanOrEqual(1.0, $result->spamCheck->confidence);
+            $this->assertIsString($result->spamCheck->reasoning);
             
             // Check Comment Score Result
             $this->assertInstanceOf(CommentScore::class, $result->commentScore);
@@ -688,10 +694,10 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->assertLessThanOrEqual(5, $result->commentScore->overallScore);
             
             // Make sure relevance was not included
-            $this->assertNull($result->relevance);
+            $this->assertNull($result->relevanceCheck);
             
             echo "\nMegacall spam and comment score succeeded with real API";
-            echo "\nSpam confidence: " . number_format($result->spam->confidence, 2);
+            echo "\nSpam confidence: " . number_format($result->spamCheck->confidence, 2);
             echo "\nComment score: " . $result->commentScore->overallScore . "/5";
             
             $assertionCalled = true;
@@ -718,24 +724,24 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->assertInstanceOf(MegaCallResult::class, $result);
             
             // Check Spam Detection Result
-            $this->assertInstanceOf(SpamDetectionResult::class, $result->spam);
-            $this->assertIsBool($result->spam->isSpam);
-            $this->assertIsFloat($result->spam->confidence);
-            $this->assertGreaterThanOrEqual(0.0, $result->spam->confidence);
-            $this->assertLessThanOrEqual(1.0, $result->spam->confidence);
-            $this->assertIsString($result->spam->reasoning);
+            $this->assertInstanceOf(SpamDetectionResult::class, $result->spamCheck);
+            $this->assertIsBool($result->spamCheck->isSpam);
+            $this->assertIsFloat($result->spamCheck->confidence);
+            $this->assertGreaterThanOrEqual(0.0, $result->spamCheck->confidence);
+            $this->assertLessThanOrEqual(1.0, $result->spamCheck->confidence);
+            $this->assertIsString($result->spamCheck->reasoning);
             
             // Check Comment Relevance Result
-            $this->assertInstanceOf(CommentRelevanceResult::class, $result->relevance);
-            $this->assertIsBool($result->relevance->onTopic->onTopic);
-            $this->assertIsFloat($result->relevance->onTopic->confidence);
-            $this->assertGreaterThanOrEqual(0.0, $result->relevance->onTopic->confidence);
-            $this->assertLessThanOrEqual(1.0, $result->relevance->onTopic->confidence);
-            $this->assertIsString($result->relevance->onTopic->reasoning);
-            $this->assertIsArray($result->relevance->bannedTopics->bannedTopics);
-            $this->assertIsFloat($result->relevance->bannedTopics->quantityOnBannedTopics);
-            $this->assertGreaterThanOrEqual(0.0, $result->relevance->bannedTopics->quantityOnBannedTopics);
-            $this->assertLessThanOrEqual(1.0, $result->relevance->bannedTopics->quantityOnBannedTopics);
+            $this->assertInstanceOf(CommentRelevanceResult::class, $result->relevanceCheck);
+            $this->assertIsBool($result->relevanceCheck->onTopic->onTopic);
+            $this->assertIsFloat($result->relevanceCheck->onTopic->confidence);
+            $this->assertGreaterThanOrEqual(0.0, $result->relevanceCheck->onTopic->confidence);
+            $this->assertLessThanOrEqual(1.0, $result->relevanceCheck->onTopic->confidence);
+            $this->assertIsString($result->relevanceCheck->onTopic->reasoning);
+            $this->assertIsArray($result->relevanceCheck->bannedTopics->bannedTopics);
+            $this->assertIsFloat($result->relevanceCheck->bannedTopics->quantityOnBannedTopics);
+            $this->assertGreaterThanOrEqual(0.0, $result->relevanceCheck->bannedTopics->quantityOnBannedTopics);
+            $this->assertLessThanOrEqual(1.0, $result->relevanceCheck->bannedTopics->quantityOnBannedTopics);
             
             // Check Comment Score Result
             $this->assertInstanceOf(CommentScore::class, $result->commentScore);
@@ -754,8 +760,8 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->assertIsString($result->commentScore->toxicityExplanation);
             
             echo "\nMegacall all services succeeded with real API";
-            echo "\nSpam confidence: " . number_format($result->spam->confidence, 2);
-            echo "\nOn topic confidence: " . number_format($result->relevance->onTopic->confidence, 2);
+            echo "\nSpam confidence: " . number_format($result->spamCheck->confidence, 2);
+            echo "\nOn topic confidence: " . number_format($result->relevanceCheck->onTopic->confidence, 2);
             echo "\nComment score: " . $result->commentScore->overallScore . "/5";
             echo "\nToxicity score: " . number_format($result->commentScore->toxicityScore, 2);
             
@@ -860,10 +866,10 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->assertInstanceOf(MegaCallResult::class, $result);
             
             // Check Spam Detection Result
-            $this->assertInstanceOf(SpamDetectionResult::class, $result->spam);
-            $this->assertIsBool($result->spam->isSpam);
-            $this->assertIsFloat($result->spam->confidence);
-            $this->assertIsString($result->spam->reasoning);
+            $this->assertInstanceOf(SpamDetectionResult::class, $result->spamCheck);
+            $this->assertIsBool($result->spamCheck->isSpam);
+            $this->assertIsFloat($result->spamCheck->confidence);
+            $this->assertIsString($result->spamCheck->reasoning);
             
             // Check Dogwhistle Result
             $this->assertInstanceOf(\Respectify\DogwhistleResult::class, $result->dogwhistle);
@@ -873,11 +879,11 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->assertIsFloat($result->dogwhistle->detection->confidence);
             
             // Other services should be null
-            $this->assertNull($result->relevance);
+            $this->assertNull($result->relevanceCheck);
             $this->assertNull($result->commentScore);
             
             echo "\nMegacall with dogwhistle succeeded with real API";
-            echo "\nSpam detected: " . ($result->spam->isSpam ? 'Yes' : 'No');
+            echo "\nSpam detected: " . ($result->spamCheck->isSpam ? 'Yes' : 'No');
             echo "\nDogwhistles detected: " . ($result->dogwhistle->detection->dogwhistlesDetected ? 'Yes' : 'No');
             
             $assertionCalled = true;
@@ -908,14 +914,14 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->assertInstanceOf(MegaCallResult::class, $result);
             
             // Check all services are present
-            $this->assertInstanceOf(SpamDetectionResult::class, $result->spam);
-            $this->assertInstanceOf(CommentRelevanceResult::class, $result->relevance);
+            $this->assertInstanceOf(SpamDetectionResult::class, $result->spamCheck);
+            $this->assertInstanceOf(CommentRelevanceResult::class, $result->relevanceCheck);
             $this->assertInstanceOf(CommentScore::class, $result->commentScore);
             $this->assertInstanceOf(\Respectify\DogwhistleResult::class, $result->dogwhistle);
             
             // Basic validation for each service
-            $this->assertIsBool($result->spam->isSpam);
-            $this->assertIsBool($result->relevance->onTopic->onTopic);
+            $this->assertIsBool($result->spamCheck->isSpam);
+            $this->assertIsBool($result->relevanceCheck->onTopic->onTopic);
             $this->assertIsInt($result->commentScore->overallScore);
             $this->assertIsFloat($result->commentScore->toxicityScore);
             $this->assertIsBool($result->dogwhistle->detection->dogwhistlesDetected);
