@@ -5,10 +5,11 @@ namespace Tests;
 use PHPUnit\Framework\TestCase;
 use Mockery as m;
 use Respectify\RespectifyClientAsync;
-use Respectify\CommentScore;
-use Respectify\SpamDetectionResult;
-use Respectify\CommentRelevanceResult;
-use Respectify\MegaCallResult;
+use Respectify\Schemas\CommentScore;
+use Respectify\Schemas\SpamDetectionResult;
+use Respectify\Schemas\CommentRelevanceResult;
+use Respectify\Schemas\DogwhistleResult;
+use Respectify\Schemas\MegaCallResult;
 use Respectify\Exceptions\BadRequestException;
 use Respectify\Exceptions\UnauthorizedException;
 use Respectify\Exceptions\UnsupportedMediaTypeException;
@@ -41,10 +42,12 @@ class RespectifyClientAsyncTest extends TestCase {
         // This test file is for real API testing only
         $email = $_ENV['RESPECTIFY_EMAIL'];
         $apiKey = $_ENV['RESPECTIFY_API_KEY'];
+        $baseUrl = $_ENV['RESPECTIFY_BASE_URL'] ?? null;
         $this->loop = Loop::get();
-        $this->client = new RespectifyClientAsync($email, $apiKey);
+        $this->client = new RespectifyClientAsync($email, $apiKey, $baseUrl);
         if (self::$isFirstSetup) { // Just print this once, not for every test
-            echo "\nUsing real API with email: $email\n";
+            $url = $baseUrl ?? 'https://app.respectify.org (default)';
+            echo "\nUsing real API with email: $email at $url\n";
             self::$isFirstSetup = false;
         }
         $this->testArticleId = $_ENV['REAL_ARTICLE_ID'];
@@ -744,14 +747,185 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->assertGreaterThanOrEqual(1, $result->commentScore->overallScore);
             $this->assertLessThanOrEqual(5, $result->commentScore->overallScore);
             
+            // Check Toxicity fields
+            $this->assertIsFloat($result->commentScore->toxicityScore);
+            $this->assertGreaterThanOrEqual(0.0, $result->commentScore->toxicityScore);
+            $this->assertLessThanOrEqual(1.0, $result->commentScore->toxicityScore);
+            $this->assertIsString($result->commentScore->toxicityExplanation);
+            
             echo "\nMegacall all services succeeded with real API";
             echo "\nSpam confidence: " . number_format($result->spam->confidence, 2);
             echo "\nOn topic confidence: " . number_format($result->relevance->onTopic->confidence, 2);
             echo "\nComment score: " . $result->commentScore->overallScore . "/5";
+            echo "\nToxicity score: " . number_format($result->commentScore->toxicityScore, 2);
             
             $assertionCalled = true;
         }, function ($error) use (&$assertionCalled) {
             $this->fail("Megacall all services failed with real API: " . get_class($error) . ": " . $error->getMessage());
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testCheckDogwhistleSuccess() {
+        assert(!empty($this->testArticleId));
+        
+        $promise = $this->client->checkDogwhistle(
+            $this->testArticleId,
+            'This is a regular comment with no problematic content.'
+        );
+        $assertionCalled = false;
+
+        $promise->then(function ($result) use (&$assertionCalled) {
+            $this->assertInstanceOf(\Respectify\DogwhistleResult::class, $result);
+            
+            // Check Detection Result
+            $this->assertInstanceOf(\Respectify\DogwhistleDetection::class, $result->detection);
+            $this->assertIsString($result->detection->reasoning);
+            $this->assertIsBool($result->detection->dogwhistlesDetected);
+            $this->assertIsFloat($result->detection->confidence);
+            $this->assertGreaterThanOrEqual(0.0, $result->detection->confidence);
+            $this->assertLessThanOrEqual(1.0, $result->detection->confidence);
+            
+            // Details can be null if no dogwhistles detected
+            if ($result->details !== null) {
+                $this->assertInstanceOf(\Respectify\DogwhistleDetails::class, $result->details);
+                $this->assertIsArray($result->details->dogwhistleTerms);
+                $this->assertIsArray($result->details->categories);
+                $this->assertIsFloat($result->details->subtletyLevel);
+                $this->assertGreaterThanOrEqual(0.0, $result->details->subtletyLevel);
+                $this->assertLessThanOrEqual(1.0, $result->details->subtletyLevel);
+                $this->assertIsFloat($result->details->harmPotential);
+                $this->assertGreaterThanOrEqual(0.0, $result->details->harmPotential);
+                $this->assertLessThanOrEqual(1.0, $result->details->harmPotential);
+            }
+            
+            echo "\nDogwhistle check succeeded with real API";
+            echo "\nDogwhistles detected: " . ($result->detection->dogwhistlesDetected ? 'Yes' : 'No');
+            echo "\nConfidence: " . number_format($result->detection->confidence, 2);
+            
+            $assertionCalled = true;
+        }, function ($error) use (&$assertionCalled) {
+            $this->fail("Dogwhistle check failed with real API: " . get_class($error) . ": " . $error->getMessage());
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testCheckDogwhistleWithSensitiveTopicsSuccess() {
+        assert(!empty($this->testArticleId));
+        
+        $promise = $this->client->checkDogwhistle(
+            $this->testArticleId,
+            'This is a comment to test with specific topics.',
+            ['politics', 'social issues']  // Sensitive topics
+        );
+        $assertionCalled = false;
+
+        $promise->then(function ($result) use (&$assertionCalled) {
+            $this->assertInstanceOf(\Respectify\DogwhistleResult::class, $result);
+            $this->assertInstanceOf(\Respectify\DogwhistleDetection::class, $result->detection);
+            $this->assertIsString($result->detection->reasoning);
+            $this->assertIsBool($result->detection->dogwhistlesDetected);
+            $this->assertIsFloat($result->detection->confidence);
+            
+            echo "\nDogwhistle check with sensitive topics succeeded with real API";
+            echo "\nDogwhistles detected: " . ($result->detection->dogwhistlesDetected ? 'Yes' : 'No');
+            
+            $assertionCalled = true;
+        }, function ($error) use (&$assertionCalled) {
+            $this->fail("Dogwhistle check with sensitive topics failed with real API: " . get_class($error) . ": " . $error->getMessage());
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testMegacallWithDogwhistleSuccess() {
+        assert(!empty($this->testArticleId));
+        
+        $promise = $this->client->megacall(
+            'This is a test comment for dogwhistle detection in megacall.',
+            $this->testArticleId,
+            ['spam', 'dogwhistle'] // Include spam and dogwhistle services
+        );
+        $assertionCalled = false;
+
+        $promise->then(function ($result) use (&$assertionCalled) {
+            $this->assertInstanceOf(MegaCallResult::class, $result);
+            
+            // Check Spam Detection Result
+            $this->assertInstanceOf(SpamDetectionResult::class, $result->spam);
+            $this->assertIsBool($result->spam->isSpam);
+            $this->assertIsFloat($result->spam->confidence);
+            $this->assertIsString($result->spam->reasoning);
+            
+            // Check Dogwhistle Result
+            $this->assertInstanceOf(\Respectify\DogwhistleResult::class, $result->dogwhistle);
+            $this->assertInstanceOf(\Respectify\DogwhistleDetection::class, $result->dogwhistle->detection);
+            $this->assertIsString($result->dogwhistle->detection->reasoning);
+            $this->assertIsBool($result->dogwhistle->detection->dogwhistlesDetected);
+            $this->assertIsFloat($result->dogwhistle->detection->confidence);
+            
+            // Other services should be null
+            $this->assertNull($result->relevance);
+            $this->assertNull($result->commentScore);
+            
+            echo "\nMegacall with dogwhistle succeeded with real API";
+            echo "\nSpam detected: " . ($result->spam->isSpam ? 'Yes' : 'No');
+            echo "\nDogwhistles detected: " . ($result->dogwhistle->detection->dogwhistlesDetected ? 'Yes' : 'No');
+            
+            $assertionCalled = true;
+        }, function ($error) use (&$assertionCalled) {
+            $this->fail("Megacall with dogwhistle failed with real API: " . get_class($error) . ": " . $error->getMessage());
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testMegacallAllServicesWithDogwhistleSuccess() {
+        assert(!empty($this->testArticleId));
+        
+        $promise = $this->client->megacall(
+            'This is a comprehensive test comment.',
+            $this->testArticleId,
+            ['spam', 'relevance', 'commentscore', 'dogwhistle'], // All services
+            null, // No banned topics
+            null, // No reply to comment
+            ['test topic'], // Sensitive topics for dogwhistle
+            ['example phrase'] // Dogwhistle examples
+        );
+        $assertionCalled = false;
+
+        $promise->then(function ($result) use (&$assertionCalled) {
+            $this->assertInstanceOf(MegaCallResult::class, $result);
+            
+            // Check all services are present
+            $this->assertInstanceOf(SpamDetectionResult::class, $result->spam);
+            $this->assertInstanceOf(CommentRelevanceResult::class, $result->relevance);
+            $this->assertInstanceOf(CommentScore::class, $result->commentScore);
+            $this->assertInstanceOf(\Respectify\DogwhistleResult::class, $result->dogwhistle);
+            
+            // Basic validation for each service
+            $this->assertIsBool($result->spam->isSpam);
+            $this->assertIsBool($result->relevance->onTopic->onTopic);
+            $this->assertIsInt($result->commentScore->overallScore);
+            $this->assertIsFloat($result->commentScore->toxicityScore);
+            $this->assertIsBool($result->dogwhistle->detection->dogwhistlesDetected);
+            
+            echo "\nMegacall all services with dogwhistle succeeded with real API";
+            echo "\nAll four services (spam, relevance, commentscore, dogwhistle) returned results";
+            
+            $assertionCalled = true;
+        }, function ($error) use (&$assertionCalled) {
+            $this->fail("Megacall all services with dogwhistle failed with real API: " . get_class($error) . ": " . $error->getMessage());
         });
 
         $this->client->run();

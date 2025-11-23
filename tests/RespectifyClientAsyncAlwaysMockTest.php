@@ -5,10 +5,10 @@ namespace Tests;
 use PHPUnit\Framework\TestCase;
 use Mockery as m;
 use Respectify\RespectifyClientAsync;
-use Respectify\CommentScore;
-use Respectify\SpamDetectionResult;
-use Respectify\CommentRelevanceResult;
-use Respectify\MegaCallResult;
+use Respectify\Schemas\CommentScore;
+use Respectify\Schemas\SpamDetectionResult;
+use Respectify\Schemas\CommentRelevanceResult;
+use Respectify\Schemas\MegaCallResult;
 use Respectify\Exceptions\BadRequestException;
 use Respectify\Exceptions\UnauthorizedException;
 use Respectify\Exceptions\UnsupportedMediaTypeException;
@@ -215,7 +215,7 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
                 [
                     'fallacy_name' => 'Ad Hominem',
                     'quoted_logical_fallacy_example' => 'This is a "test" example with <special> characters & slashes\\. Plus the word don\'t.',
-                    'explanation_and_suggestions' => 'Explanation with control characters' . "\x00" . "\x1F" . ' and slashes\\.',
+                    'explanation' => 'Explanation with control characters' . "\x00" . "\x1F" . ' and slashes\\.',
                     'suggested_rewrite' => 'Suggested rewrite with <tags> and slashes\\. Don\\\'t is sanitised.' // Captures ' being sanitised to \', which is returned and unslashed
                 ]
             ],
@@ -370,7 +370,7 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
                     [
                         'fallacy_name' => 'Ad Hominem',
                         'quoted_logical_fallacy_example' => 'Fallacy with <script>alert("xss")</script> chars that should be removed.',
-                        'explanation_and_suggestions' => 'Explanation with <tags> to remove and sanitize.',
+                        'explanation' => 'Explanation with <tags> to remove and sanitize.',
                         'suggested_rewrite' => 'Rewrite with <tags> to sanitize.'
                     ]
                 ],
