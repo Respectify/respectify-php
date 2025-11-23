@@ -387,7 +387,12 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
             ]
         ]));
 
-        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+        // Match any POST request to megacall endpoint
+        $this->browserMock->shouldReceive('post')
+            ->withArgs(function ($url) {
+                return strpos($url, '/megacall') !== false;
+            })
+            ->andReturn(resolve($responseMock));
 
         $promise = $this->client->megacall(
             'This is a test megacall comment',
@@ -395,65 +400,71 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
             ['spam', 'relevance', 'commentscore']
         );
         $assertionCalled = false;
+        $errorMessage = null;
 
         $promise->then(function ($result) use (&$assertionCalled) {
-            $this->assertInstanceOf(MegaCallResult::class, $result);
-            
+            $this->assertInstanceOf(MegaCallResult::class, $result, 'MEGACALL: Result should be MegaCallResult instance');
+
             // Check Spam Detection Result
-            $this->assertInstanceOf(SpamDetectionResult::class, $result->spam);
-            $this->assertFalse($result->spam->isSpam);
-            $this->assertEquals(0.85, $result->spam->confidence);
-            $this->assertStringContainsString('&lt;script&gt;', $result->spam->reasoning);
-            $this->assertStringContainsString('Comment not spam', $result->spam->reasoning);
-            
+            $this->assertInstanceOf(SpamDetectionResult::class, $result->spamCheck, 'MEGACALL: spamCheck should be SpamDetectionResult instance');
+            $this->assertFalse($result->spamCheck->isSpam, 'MEGACALL: spamCheck.isSpam should be false');
+            $this->assertEquals(0.85, $result->spamCheck->confidence, 'MEGACALL: spamCheck.confidence should be 0.85');
+            $this->assertStringContainsString('&lt;script&gt;', $result->spamCheck->reasoning, 'MEGACALL: spamCheck.reasoning should contain sanitized script tag');
+            $this->assertStringContainsString('Comment not spam', $result->spamCheck->reasoning, 'MEGACALL: spamCheck.reasoning should contain expected text');
+
             // Check Comment Relevance Result
-            $this->assertInstanceOf(CommentRelevanceResult::class, $result->relevance);
-            
+            $this->assertInstanceOf(CommentRelevanceResult::class, $result->relevanceCheck, 'MEGACALL: relevanceCheck should be CommentRelevanceResult instance');
+
             // Check OnTopicResult
-            $this->assertIsBool($result->relevance->onTopic->onTopic);
-            $this->assertIsFloat($result->relevance->onTopic->confidence);
-            $this->assertGreaterThanOrEqual(0.0, $result->relevance->onTopic->confidence);
-            $this->assertLessThanOrEqual(1.0, $result->relevance->onTopic->confidence);
-            $this->assertIsString($result->relevance->onTopic->reasoning);
-            $this->assertNotEmpty($result->relevance->onTopic->reasoning);
-            
+            $this->assertIsBool($result->relevanceCheck->onTopic->onTopic, 'MEGACALL: onTopic.onTopic should be bool');
+            $this->assertIsFloat($result->relevanceCheck->onTopic->confidence, 'MEGACALL: onTopic.confidence should be float');
+            $this->assertGreaterThanOrEqual(0.0, $result->relevanceCheck->onTopic->confidence, 'MEGACALL: onTopic.confidence should be >= 0.0');
+            $this->assertLessThanOrEqual(1.0, $result->relevanceCheck->onTopic->confidence, 'MEGACALL: onTopic.confidence should be <= 1.0');
+            $this->assertIsString($result->relevanceCheck->onTopic->reasoning, 'MEGACALL: onTopic.reasoning should be string');
+            $this->assertNotEmpty($result->relevanceCheck->onTopic->reasoning, 'MEGACALL: onTopic.reasoning should not be empty');
+
             // Check BannedTopicsResult
-            $this->assertIsArray($result->relevance->bannedTopics->bannedTopics);
-            $this->assertIsFloat($result->relevance->bannedTopics->quantityOnBannedTopics);
-            $this->assertGreaterThanOrEqual(0.0, $result->relevance->bannedTopics->quantityOnBannedTopics);
-            $this->assertLessThanOrEqual(1.0, $result->relevance->bannedTopics->quantityOnBannedTopics);
-            $this->assertIsFloat($result->relevance->bannedTopics->confidence);
-            $this->assertGreaterThanOrEqual(0.0, $result->relevance->bannedTopics->confidence);
-            $this->assertLessThanOrEqual(1.0, $result->relevance->bannedTopics->confidence);
-            $this->assertIsString($result->relevance->bannedTopics->reasoning);
-            $this->assertNotEmpty($result->relevance->bannedTopics->reasoning);
-            
+            $this->assertIsArray($result->relevanceCheck->bannedTopics->bannedTopics, 'MEGACALL: bannedTopics.bannedTopics should be array');
+            $this->assertIsFloat($result->relevanceCheck->bannedTopics->quantityOnBannedTopics, 'MEGACALL: bannedTopics.quantityOnBannedTopics should be float');
+            $this->assertGreaterThanOrEqual(0.0, $result->relevanceCheck->bannedTopics->quantityOnBannedTopics, 'MEGACALL: bannedTopics.quantityOnBannedTopics should be >= 0.0');
+            $this->assertLessThanOrEqual(1.0, $result->relevanceCheck->bannedTopics->quantityOnBannedTopics, 'MEGACALL: bannedTopics.quantityOnBannedTopics should be <= 1.0');
+            $this->assertIsFloat($result->relevanceCheck->bannedTopics->confidence, 'MEGACALL: bannedTopics.confidence should be float');
+            $this->assertGreaterThanOrEqual(0.0, $result->relevanceCheck->bannedTopics->confidence, 'MEGACALL: bannedTopics.confidence should be >= 0.0');
+            $this->assertLessThanOrEqual(1.0, $result->relevanceCheck->bannedTopics->confidence, 'MEGACALL: bannedTopics.confidence should be <= 1.0');
+            $this->assertIsString($result->relevanceCheck->bannedTopics->reasoning, 'MEGACALL: bannedTopics.reasoning should be string');
+            $this->assertNotEmpty($result->relevanceCheck->bannedTopics->reasoning, 'MEGACALL: bannedTopics.reasoning should not be empty');
+
             // Check Comment Score Result
-            $this->assertInstanceOf(CommentScore::class, $result->commentScore);
-            
+            $this->assertInstanceOf(CommentScore::class, $result->commentScore, 'MEGACALL: commentScore should be CommentScore instance');
+
             // Check LogicalFallacy
-            $this->assertNotEmpty($result->commentScore->logicalFallacies);
-            $this->assertIsString($result->commentScore->logicalFallacies[0]->fallacyName);
-            $this->assertNotEmpty($result->commentScore->logicalFallacies[0]->fallacyName);
-            $this->assertIsString($result->commentScore->logicalFallacies[0]->quotedLogicalFallacyExample);
-            $this->assertNotEmpty($result->commentScore->logicalFallacies[0]->quotedLogicalFallacyExample);
-            $this->assertIsString($result->commentScore->logicalFallacies[0]->explanation);
-            $this->assertNotEmpty($result->commentScore->logicalFallacies[0]->explanation);
-            $this->assertIsString($result->commentScore->logicalFallacies[0]->suggestedRewrite);
-            
+            $this->assertNotEmpty($result->commentScore->logicalFallacies, 'MEGACALL: logicalFallacies should not be empty');
+            $this->assertIsString($result->commentScore->logicalFallacies[0]->fallacyName, 'MEGACALL: logicalFallacies[0].fallacyName should be string');
+            $this->assertNotEmpty($result->commentScore->logicalFallacies[0]->fallacyName, 'MEGACALL: logicalFallacies[0].fallacyName should not be empty');
+            $this->assertIsString($result->commentScore->logicalFallacies[0]->quotedLogicalFallacyExample, 'MEGACALL: logicalFallacies[0].quotedLogicalFallacyExample should be string');
+            $this->assertNotEmpty($result->commentScore->logicalFallacies[0]->quotedLogicalFallacyExample, 'MEGACALL: logicalFallacies[0].quotedLogicalFallacyExample should not be empty');
+            $this->assertIsString($result->commentScore->logicalFallacies[0]->explanation, 'MEGACALL: logicalFallacies[0].explanation should be string');
+            $this->assertNotEmpty($result->commentScore->logicalFallacies[0]->explanation, 'MEGACALL: logicalFallacies[0].explanation should not be empty');
+            $this->assertIsString($result->commentScore->logicalFallacies[0]->suggestedRewrite, 'MEGACALL: logicalFallacies[0].suggestedRewrite should be string');
+
             // Check ObjectionablePhrase
-            $this->assertNotEmpty($result->commentScore->objectionablePhrases);
-            $this->assertIsString($result->commentScore->objectionablePhrases[0]->quotedObjectionablePhrase);
-            $this->assertNotEmpty($result->commentScore->objectionablePhrases[0]->quotedObjectionablePhrase);
-            $this->assertIsString($result->commentScore->objectionablePhrases[0]->explanation);
-            $this->assertNotEmpty($result->commentScore->objectionablePhrases[0]->explanation);
-            $this->assertIsString($result->commentScore->objectionablePhrases[0]->suggestedRewrite);
-            
+            $this->assertNotEmpty($result->commentScore->objectionablePhrases, 'MEGACALL: objectionablePhrases should not be empty');
+            $this->assertIsString($result->commentScore->objectionablePhrases[0]->quotedObjectionablePhrase, 'MEGACALL: objectionablePhrases[0].quotedObjectionablePhrase should be string');
+            $this->assertNotEmpty($result->commentScore->objectionablePhrases[0]->quotedObjectionablePhrase, 'MEGACALL: objectionablePhrases[0].quotedObjectionablePhrase should not be empty');
+            $this->assertIsString($result->commentScore->objectionablePhrases[0]->explanation, 'MEGACALL: objectionablePhrases[0].explanation should be string');
+            $this->assertNotEmpty($result->commentScore->objectionablePhrases[0]->explanation, 'MEGACALL: objectionablePhrases[0].explanation should not be empty');
+            $this->assertIsString($result->commentScore->objectionablePhrases[0]->suggestedRewrite, 'MEGACALL: objectionablePhrases[0].suggestedRewrite should be string');
+
             $assertionCalled = true;
+        }, function ($error) use (&$errorMessage) {
+            $errorMessage = 'MEGACALL: Promise was rejected with error: ' . (string)$error;
         });
 
         $this->client->run();
 
-        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+        if ($errorMessage !== null) {
+            $this->fail($errorMessage);
+        }
+        $this->assertTrue($assertionCalled, 'MEGACALL: Assertions in the promise were not called - promise may not have resolved');
     }
 }
