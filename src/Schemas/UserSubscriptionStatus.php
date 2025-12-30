@@ -40,6 +40,16 @@ class UserSubscriptionStatus {
     public ?string $expires;
 
     /**
+     * Name of the subscription plan (e.g., 'Personal', 'Professional', 'Anti-Spam Only')
+     */
+    public ?string $planName;
+
+    /**
+     * List of API endpoints allowed for this plan (e.g., ['antispam', 'commentscore'])
+     */
+    public array $allowedEndpoints;
+
+    /**
      * Error message if any
      */
     public ?string $error;
@@ -52,6 +62,8 @@ class UserSubscriptionStatus {
         $this->active = $data['active'] ?? false;
         $this->status = $data['status'] ?? null;
         $this->expires = $data['expires'] ?? null;
+        $this->planName = $data['plan_name'] ?? null;
+        $this->allowedEndpoints = $data['allowed_endpoints'] ?? [];
         $this->error = $data['error'] ?? null;
     }
 }
