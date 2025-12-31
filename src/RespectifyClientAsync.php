@@ -8,7 +8,9 @@ use React\Promise\PromiseInterface;
 use Psr\Http\Message\ResponseInterface;
 use Respectify\Exceptions\BadRequestException;
 use Respectify\Exceptions\UnauthorizedException;
+use Respectify\Exceptions\PaymentRequiredException;
 use Respectify\Exceptions\UnsupportedMediaTypeException;
+use Respectify\Exceptions\ServerException;
 use Respectify\Exceptions\JsonDecodingException;
 use Respectify\Exceptions\RespectifyException;
 
@@ -42,7 +44,7 @@ use Respectify\Schemas\InitTopicResponse;
  * See the [Quick Start](/docs/SampleCode) for sample code.
  */
 class RespectifyClientAsync {
-    private const DEFAULT_BASE_URL = 'https://app.respectify.org';
+    private const DEFAULT_BASE_URL = 'https://app.respectify.ai';
     private const DEFAULT_VERSION = 0.2;
 
     private Browser $client;
@@ -112,7 +114,9 @@ class RespectifyClientAsync {
      * @param mixed $response
      * @throws BadRequestException
      * @throws UnauthorizedException
+     * @throws PaymentRequiredException
      * @throws UnsupportedMediaTypeException
+     * @throws ServerException
      * @throws RespectifyException
      */
     private function handleError(mixed $response): void {
@@ -146,8 +150,12 @@ class RespectifyClientAsync {
                 throw new BadRequestException('Bad Request' . $errorDetails);
             case 401:
                 throw new UnauthorizedException('Unauthorized' . $errorDetails);
+            case 402:
+                throw new PaymentRequiredException('Payment Required' . $errorDetails);
             case 415:
                 throw new UnsupportedMediaTypeException('Unsupported Media Type' . $errorDetails);
+            case 500:
+                throw new ServerException('Internal Server Error' . $errorDetails);
             default:
                 throw new RespectifyException('Error ' . $response->getStatusCode() . $errorDetails);
         }

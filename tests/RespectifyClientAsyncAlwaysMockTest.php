@@ -11,7 +11,9 @@ use Respectify\Schemas\CommentRelevanceResult;
 use Respectify\Schemas\MegaCallResult;
 use Respectify\Exceptions\BadRequestException;
 use Respectify\Exceptions\UnauthorizedException;
+use Respectify\Exceptions\PaymentRequiredException;
 use Respectify\Exceptions\UnsupportedMediaTypeException;
+use Respectify\Exceptions\ServerException;
 use Respectify\Exceptions\JsonDecodingException;
 use Respectify\Exceptions\RespectifyException;
 use React\Http\Browser;
@@ -466,5 +468,81 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
             $this->fail($errorMessage);
         }
         $this->assertTrue($assertionCalled, 'MEGACALL: Assertions in the promise were not called - promise may not have resolved');
+    }
+
+    public function testPaymentRequiredExceptionOn402() {
+        // Mock a 402 Payment Required response
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(402);
+        $responseMock->shouldReceive('getReasonPhrase')->andReturn('Payment Required');
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'title' => 'Payment Required',
+            'description' => 'Your plan does not include access to this endpoint.'
+        ]));
+
+        // Create a ResponseException that wraps our mock response
+        $responseException = new \React\Http\Message\ResponseException($responseMock);
+
+        $this->browserMock->shouldReceive('post')
+            ->andReturn(\React\Promise\reject($responseException));
+
+        $promise = $this->client->evaluateComment(
+            $this->testArticleId,
+            'This is a test comment'
+        );
+        $caughtException = null;
+
+        $promise->then(
+            function ($result) {
+                $this->fail('Expected PaymentRequiredException not thrown');
+            },
+            function ($e) use (&$caughtException) {
+                $caughtException = $e;
+            }
+        );
+
+        $this->client->run();
+
+        $this->assertNotNull($caughtException, 'Exception should have been caught');
+        $this->assertInstanceOf(PaymentRequiredException::class, $caughtException);
+        $this->assertStringContainsString('Payment Required', $caughtException->getMessage());
+    }
+
+    public function testServerExceptionOn500() {
+        // Mock a 500 Internal Server Error response
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(500);
+        $responseMock->shouldReceive('getReasonPhrase')->andReturn('Internal Server Error');
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'title' => 'Internal Server Error',
+            'description' => 'An unexpected error occurred.'
+        ]));
+
+        // Create a ResponseException that wraps our mock response
+        $responseException = new \React\Http\Message\ResponseException($responseMock);
+
+        $this->browserMock->shouldReceive('post')
+            ->andReturn(\React\Promise\reject($responseException));
+
+        $promise = $this->client->evaluateComment(
+            $this->testArticleId,
+            'This is a test comment'
+        );
+        $caughtException = null;
+
+        $promise->then(
+            function ($result) {
+                $this->fail('Expected ServerException not thrown');
+            },
+            function ($e) use (&$caughtException) {
+                $caughtException = $e;
+            }
+        );
+
+        $this->client->run();
+
+        $this->assertNotNull($caughtException, 'Exception should have been caught');
+        $this->assertInstanceOf(ServerException::class, $caughtException);
+        $this->assertStringContainsString('Internal Server Error', $caughtException->getMessage());
     }
 }
