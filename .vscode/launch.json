@@ -45,13 +45,37 @@
             }
         },
         {
-            "name": "PHPUnit Tests",
+            "name": "PHPUnit Tests - Mock",
             "type": "php",
             "request": "launch",
             "program": "${workspaceFolder}/vendor/bin/phpunit",
             "args": [
                 "--configuration",
-                "${workspaceFolder}/phpunit.xml"
+                "${workspaceFolder}/phpunit.xml",
+                "--filter",
+                "testEvaluateCommentSanitization",
+                "tests/RespectifyClientAsyncAlwaysMockTest.php"
+            ],
+            "cwd": "${workspaceFolder}",
+            "port": 9003,
+            "runtimeArgs": [
+                "-dxdebug.mode=debug",
+                "-dxdebug.start_with_request=yes"
+            ],
+            "env": {
+                "XDEBUG_MODE": "debug,develop",
+                "XDEBUG_CONFIG": "client_port=${port}"
+            }
+        },
+        {
+            "name": "PHPUnit Tests - Normal",
+            "type": "php",
+            "request": "launch",
+            "program": "${workspaceFolder}/vendor/bin/phpunit",
+            "args": [
+                "--configuration",
+                "${workspaceFolder}/phpunit.xml",
+                "tests/RespectifyClientAsyncTest.php"
             ],
             "cwd": "${workspaceFolder}",
             "port": 9003,

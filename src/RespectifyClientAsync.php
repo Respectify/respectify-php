@@ -132,14 +132,15 @@ class RespectifyClientAsync {
         }
 
         // Try to get error details from response body
+        // API error format: {error, message, code}
         $body = (string)$response->getBody();
         $errorDetails = '';
         if (!empty($body)) {
             $decoded = json_decode($body, true);
-            if (isset($decoded['title'])) {
-                $errorDetails = ': ' . $decoded['title'];
-                if (isset($decoded['description'])) {
-                    $errorDetails .= ' - ' . $decoded['description'];
+            if (isset($decoded['error'])) {
+                $errorDetails = ': ' . $decoded['error'];
+                if (isset($decoded['message'])) {
+                    $errorDetails .= ' - ' . $decoded['message'];
                 }
             } else {
                 $errorDetails = ': ' . substr($body, 0, 200);
