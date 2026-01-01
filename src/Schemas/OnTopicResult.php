@@ -35,7 +35,7 @@ class OnTopicResult {
     public bool $onTopic;
 
     /**
-     * Confidence level of relevance detection
+     * Confidence level (0.0=low, 1.0=high)
      * Constraints: ge=0.0, le=1.0
      */
     public float $confidence;

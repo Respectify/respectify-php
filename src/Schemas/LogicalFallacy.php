@@ -40,7 +40,7 @@ class LogicalFallacy {
     public string $explanation;
 
     /**
-     * Suggested rewrite of the fallacious content
+     * Suggested rewrite (only provided when comment appears good-faith; otherwise empty)
      */
     public string $suggestedRewrite;
 

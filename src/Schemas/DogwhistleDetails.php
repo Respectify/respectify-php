@@ -35,13 +35,13 @@ class DogwhistleDetails {
     public array $categories;
 
     /**
-     * How subtle the dogwhistles are
+     * Subtlety level (0.0=obvious, 1.0=very subtle)
      * Constraints: ge=0.0, le=1.0
      */
     public float $subtletyLevel;
 
     /**
-     * Potential harm level of the dogwhistles
+     * Potential harm level (0.0=low, 1.0=high)
      * Constraints: ge=0.0, le=1.0
      */
     public float $harmPotential;

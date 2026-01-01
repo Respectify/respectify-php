@@ -35,7 +35,7 @@ class ObjectionablePhrase {
     public string $explanation;
 
     /**
-     * Suggested rewrite of the objectionable content
+     * Suggested rewrite (only provided when comment appears good-faith; otherwise empty)
      */
     public string $suggestedRewrite;
 

@@ -35,7 +35,7 @@ class SpamDetectionResult {
     public bool $isSpam;
 
     /**
-     * Confidence level of spam detection
+     * Confidence level (0.0=low, 1.0=high)
      * Constraints: ge=0.0, le=1.0
      */
     public float $confidence;
