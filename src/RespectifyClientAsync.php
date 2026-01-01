@@ -326,7 +326,10 @@ class RespectifyClientAsync {
      * Check user credentials and return account status information if there is any issue with the account.
      * This can only return info about the account whose correct credentials were provided when creating the RespectifyClientAsync instance.
      *
-     * @return PromiseInterface<array> A promise that resolves to an array containing a boolean success flag and a string with account status information.
+     * @return PromiseInterface<array> A promise that resolves to an array containing:
+     *   - [0] bool $success - Whether authentication was successful
+     *   - [1] string $info - Account status information message
+     *   - [2] array|null $subscription - Subscription details (plan_name, allowed_endpoints) if available
      * @throws RespectifyException
      * @throws JsonDecodingException
      */
@@ -335,7 +338,7 @@ class RespectifyClientAsync {
             $this->getApiUrl('usercheck'),
             $this->getHeaders()
         )->then(function (ResponseInterface $response) {
-            // Only if got 200 OK - anything else should be a promise rejection for the 
+            // Only if got 200 OK - anything else should be a promise rejection for the
             // otherwise function
             if ($response->getStatusCode() !== 200) {
                 $this->handleError($response);
@@ -344,7 +347,8 @@ class RespectifyClientAsync {
                 $responseData = json_decode((string)$response->getBody(), true);
                 if (isset($responseData['success'])) {
                     $success = filter_var($responseData['success'], FILTER_VALIDATE_BOOLEAN); // Convert string, eg "true", to bool
-                    return [$success, $responseData['info']];
+                    $subscription = isset($responseData['subscription']) ? $responseData['subscription'] : null;
+                    return [$success, $responseData['info'], $subscription];
                 } else {
                     throw new JsonDecodingException('Unexpected response structure from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
                 }
@@ -358,7 +362,7 @@ class RespectifyClientAsync {
             if ($e instanceof \React\Http\Message\ResponseException) {
                 $response = $e->getResponse();
                 if ($response !== null && $response->getStatusCode() === 401) {
-                    return [false, 'Unauthorized. This means there was an error with the email and/or API key. Please check them and try again.'];
+                    return [false, 'Unauthorized. This means there was an error with the email and/or API key. Please check them and try again.', null];
                 } elseif ($response instanceof ResponseInterface) {
                     throw new RespectifyException(
                         'HTTP error: ' . htmlspecialchars((string)$response->getStatusCode(), ENT_QUOTES, 'UTF-8') . ' ' . htmlspecialchars($response->getReasonPhrase(), ENT_QUOTES, 'UTF-8')
