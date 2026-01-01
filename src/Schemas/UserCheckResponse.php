@@ -20,44 +20,53 @@
 namespace Respectify\Schemas;
 
 /**
- * Represents the response from checking user credentials.
+ * Response from the usercheck endpoint containing subscription status.
+
+This is returned directly as the API response - no wrapper needed since
+HTTP 200 indicates success and HTTP 4xx indicates errors.
  */
 class UserCheckResponse {
 
     /**
-     * Success status as string
+     * Whether the subscription is active
      */
-    public ?string $success;
+    public bool $active;
 
     /**
-     * Information message about the check
+     * Current subscription status
      */
-    public ?string $info;
+    public ?string $status;
 
     /**
-     * User subscription information
+     * Subscription expiration date
      */
-    public ?UserSubscriptionStatus $subscription;
+    public ?string $expires;
 
     /**
-     * Error title when subscription required
+     * Name of the subscription plan (e.g., 'Personal', 'Professional', 'Anti-Spam Only')
      */
-    public ?string $title;
+    public ?string $planName;
 
     /**
-     * Error description when subscription required
+     * List of API endpoints allowed for this plan (e.g., ['antispam', 'commentscore'])
      */
-    public ?string $description;
+    public array $allowedEndpoints;
+
+    /**
+     * Error message if subscription check failed
+     */
+    public ?string $error;
 
     /**
      * UserCheckResponse constructor.
      * @param array $data The JSON data from the API
      */
     public function __construct(array $data) {
-        $this->success = $data['success'] ?? null;
-        $this->info = $data['info'] ?? null;
-        $this->subscription = isset($data['subscription']) ? new UserSubscriptionStatus($data['subscription']) : null;
-        $this->title = $data['title'] ?? null;
-        $this->description = $data['description'] ?? null;
+        $this->active = $data['active'] ?? false;
+        $this->status = $data['status'] ?? null;
+        $this->expires = $data['expires'] ?? null;
+        $this->planName = $data['plan_name'] ?? null;
+        $this->allowedEndpoints = $data['allowed_endpoints'] ?? [];
+        $this->error = $data['error'] ?? null;
     }
 }
