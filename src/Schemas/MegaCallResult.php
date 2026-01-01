@@ -25,22 +25,22 @@ namespace Respectify\Schemas;
 class MegaCallResult {
 
     /**
-     * Comment score result, if requested
+     * Comment score result. Null unless requested via include_comment_score (Python) or 'commentscore' service (PHP).
      */
     public ?CommentScore $commentScore;
 
     /**
-     * Spam detection result, if requested
+     * Spam detection result. Null unless requested via include_spam (Python) or 'spam' service (PHP).
      */
     public ?SpamDetectionResult $spamCheck;
 
     /**
-     * Comment relevance result, if requested
+     * Comment relevance result. Null unless requested via include_relevance (Python) or 'relevance' service (PHP).
      */
     public ?CommentRelevanceResult $relevanceCheck;
 
     /**
-     * Dogwhistle detection result, if requested
+     * Dogwhistle detection result. Null unless requested via include_dogwhistle (Python) or 'dogwhistle' service (PHP).
      */
     public ?DogwhistleResult $dogwhistleCheck;
 

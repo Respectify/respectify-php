@@ -35,13 +35,13 @@ class BannedTopicsResult {
     public array $bannedTopics;
 
     /**
-     * Proportion of comment discussing banned topics
+     * Proportion discussing banned topics (0.0=none, 1.0=entirely)
      * Constraints: ge=0.0, le=1.0
      */
     public float $quantityOnBannedTopics;
 
     /**
-     * Confidence level of banned topics detection
+     * Confidence level (0.0=low, 1.0=high)
      * Constraints: ge=0.0, le=1.0
      */
     public float $confidence;

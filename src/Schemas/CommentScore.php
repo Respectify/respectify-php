@@ -45,13 +45,13 @@ class CommentScore {
     public bool $appearsLowEffort;
 
     /**
-     * Overall quality score from 1 to 5
+     * Overall quality score (1=poor, 5=excellent)
      * Constraints: ge=1, le=5
      */
     public int $overallScore;
 
     /**
-     * Toxicity score from 0.0 to 1.0
+     * Toxicity score (0.0=not toxic, 1.0=highly toxic)
      * Constraints: ge=0.0, le=1.0
      */
     public float $toxicityScore;

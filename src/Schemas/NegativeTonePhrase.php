@@ -35,7 +35,7 @@ class NegativeTonePhrase {
     public string $explanation;
 
     /**
-     * Suggested rewrite with more positive tone
+     * Suggested rewrite (only provided when comment appears good-faith; otherwise empty)
      */
     public string $suggestedRewrite;
 
