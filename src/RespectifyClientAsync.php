@@ -131,13 +131,18 @@ class RespectifyClientAsync {
             throw new RespectifyException('Unknown error occurred');
         }
 
-        // Try to get error details from response body
-        // API error format: {error, message, code}
+        // Try to get error details from response body.
+        // The server (Falcon) returns errors as {title, description}.
+        // Also check {error, message} for conventional API error format.
         $body = (string)$response->getBody();
         $errorDetails = '';
         if (!empty($body)) {
             $decoded = json_decode($body, true);
-            if (isset($decoded['error'])) {
+            if (isset($decoded['description'])) {
+                // Falcon HTTPError format: {title, description}
+                $errorDetails = ': ' . $decoded['description'];
+            } elseif (isset($decoded['error'])) {
+                // Conventional API error format: {error, message}
                 $errorDetails = ': ' . $decoded['error'];
                 if (isset($decoded['message'])) {
                     $errorDetails .= ' - ' . $decoded['message'];
