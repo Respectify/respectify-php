@@ -126,7 +126,7 @@ class RespectifyClientAsync {
         }
         if (!$response instanceof ResponseInterface) {
             if ($response instanceof \Exception) {
-                throw new RespectifyException('Generic error: ' . $response->getMessage(), $response->getCode(), $response);
+                throw new RespectifyException('Generic error: ' . $response->getMessage(), $response->getCode(), null, $response);
             }
             throw new RespectifyException('Unknown error occurred');
         }
@@ -135,36 +135,39 @@ class RespectifyClientAsync {
         // The server's error handler sends {error, message, code} for API routes.
         // Also check 'description' (raw Falcon format) as fallback.
         $body = (string)$response->getBody();
+        $decoded = null;
         $errorDetails = '';
         if (!empty($body)) {
             $decoded = json_decode($body, true);
-            if (isset($decoded['message'])) {
+            if (isset($decoded['error'])) {
                 // Server API error format: {error, message, code}
-                $errorDetails = ': ' . $decoded['message'];
+                $errorDetails = ': ' . $decoded['error'];
+                if (isset($decoded['message'])) {
+                    $errorDetails .= ' - ' . $decoded['message'];
+                }
             } elseif (isset($decoded['description'])) {
                 // Raw Falcon HTTPError format: {title, description}
                 $errorDetails = ': ' . $decoded['description'];
-            } elseif (isset($decoded['error'])) {
-                // Error field only (no message)
-                $errorDetails = ': ' . $decoded['error'];
             } else {
                 $errorDetails = ': ' . substr($body, 0, 200);
             }
         }
 
-        switch ($response->getStatusCode()) {
+        $statusCode = $response->getStatusCode();
+        switch ($statusCode) {
             case 400:
-                throw new BadRequestException('Bad Request' . $errorDetails);
+                throw new BadRequestException('Bad Request' . $errorDetails, $statusCode, $decoded);
             case 401:
-                throw new UnauthorizedException('Unauthorized' . $errorDetails);
+                throw new UnauthorizedException('Unauthorized' . $errorDetails, $statusCode, $decoded);
             case 402:
-                throw new PaymentRequiredException('Payment Required' . $errorDetails);
+                throw new PaymentRequiredException('Payment Required' . $errorDetails, $statusCode, $decoded);
             case 415:
-                throw new UnsupportedMediaTypeException('Unsupported Media Type' . $errorDetails);
-            case 500:
-                throw new ServerException('Internal Server Error' . $errorDetails);
+                throw new UnsupportedMediaTypeException('Unsupported Media Type' . $errorDetails, $statusCode, $decoded);
             default:
-                throw new RespectifyException('Error ' . $response->getStatusCode() . $errorDetails);
+                if ($statusCode >= 500) {
+                    throw new ServerException('Server Error ' . $statusCode . $errorDetails, $statusCode, $decoded);
+                }
+                throw new RespectifyException('Error ' . $statusCode . $errorDetails, $statusCode, $decoded);
         }
     }
 
@@ -260,9 +263,10 @@ class RespectifyClientAsync {
             $data = trim($data);
             // Remove control characters
             $data = preg_replace('/[\x00-\x1F\x7F]/u', '', $data);
-            // Strip slashes already added (so not double-slashed)
-            // and convert special characters to HTML entities
-            return htmlspecialchars(stripslashes($data), ENT_QUOTES, 'UTF-8');
+            // Convert special characters to HTML entities to prevent XSS.
+            // Note: json_decode() already handles JSON escape sequences, so no
+            // stripslashes() is needed here - it would corrupt legitimate backslashes.
+            return htmlspecialchars($data, ENT_QUOTES, 'UTF-8');
         } elseif (is_array($data)) {
             return array_map([$this, 'sanitiseReturnedData'], $data);
         }
@@ -512,6 +516,14 @@ class RespectifyClientAsync {
      * @throws RespectifyException For other API errors
      */
     public function checkDogwhistle(string $articleContextId, string $comment, ?array $sensitiveTopics = null, ?array $dogwhistleExamples = null): PromiseInterface {
+        if (empty($articleContextId)) {
+            throw new BadRequestException('Article context ID must be provided');
+        }
+
+        if (empty($comment)) {
+            throw new BadRequestException('Comment must be provided');
+        }
+
         $data = [
             'article_context_id' => $articleContextId,
             'comment' => $comment

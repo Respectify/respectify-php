@@ -216,23 +216,23 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
             'logical_fallacies' => [
                 [
                     'fallacy_name' => 'Ad Hominem',
-                    'quoted_logical_fallacy_example' => 'This is a "test" example with <special> characters & slashes\\. Plus the word don\'t.',
-                    'explanation' => 'Explanation with control characters' . "\x00" . "\x1F" . ' and slashes\\.',
-                    'suggested_rewrite' => 'Suggested rewrite with <tags> and slashes\\. Don\\\'t is sanitised.' // Captures ' being sanitised to \', which is returned and unslashed
+                    'quoted_logical_fallacy_example' => 'This is a "test" example with <special> characters & don\'t.',
+                    'explanation' => 'Explanation with control characters' . "\x00" . "\x1F" . ' that are removed.',
+                    'suggested_rewrite' => 'Suggested rewrite with <tags> and don\'t.'
                 ]
             ],
             'objectionable_phrases' => [
                 [
-                    'quoted_objectionable_phrase' => 'Objectionable "phrase" with <special> characters & slashes\\.',
-                    'explanation' => 'Explanation with control characters' . "\x00" . "\x1F" . ' and slashes\\.',
-                    'suggested_rewrite' => 'Suggested rewrite with <tags> and slashes\\.'
+                    'quoted_objectionable_phrase' => 'Objectionable "phrase" with <special> characters & symbols.',
+                    'explanation' => 'Explanation with control characters' . "\x00" . "\x1F" . ' that are removed.',
+                    'suggested_rewrite' => 'Suggested rewrite with <tags> and symbols.'
                 ]
             ],
             'negative_tone_phrases' => [
                 [
-                    'quoted_negative_tone_phrase' => 'Negative "tone" phrase with <special> characters & slashes\\.',
-                    'explanation' => 'Explanation with control characters' . "\x00" . "\x1F" . ' and slashes\\.',
-                    'suggested_rewrite' => 'Suggested rewrite with <tags> and slashes\\.'
+                    'quoted_negative_tone_phrase' => 'Negative "tone" phrase with <special> characters & symbols.',
+                    'explanation' => 'Explanation with control characters' . "\x00" . "\x1F" . ' that are removed.',
+                    'suggested_rewrite' => 'Suggested rewrite with <tags> and symbols.'
                 ]
             ],
             'appears_low_effort' => false,
@@ -250,21 +250,21 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
         $promise->then(function ($commentScore) use (&$assertionCalled) {
             $this->assertInstanceOf(CommentScore::class, $commentScore);
 
-            // Verify logical fallacies
+            // Verify logical fallacies - HTML entities encoded, control chars removed
             $this->assertEquals('Ad Hominem', $commentScore->logicalFallacies[0]->fallacyName);
-            $this->assertEquals('This is a &quot;test&quot; example with &lt;special&gt; characters &amp; slashes. Plus the word don&#039;t.', $commentScore->logicalFallacies[0]->quotedLogicalFallacyExample);
-            $this->assertEquals('Explanation with control characters and slashes.', $commentScore->logicalFallacies[0]->explanation);
-            $this->assertEquals('Suggested rewrite with &lt;tags&gt; and slashes. Don&#039;t is sanitised.', $commentScore->logicalFallacies[0]->suggestedRewrite);
+            $this->assertEquals('This is a &quot;test&quot; example with &lt;special&gt; characters &amp; don&#039;t.', $commentScore->logicalFallacies[0]->quotedLogicalFallacyExample);
+            $this->assertEquals('Explanation with control characters that are removed.', $commentScore->logicalFallacies[0]->explanation);
+            $this->assertEquals('Suggested rewrite with &lt;tags&gt; and don&#039;t.', $commentScore->logicalFallacies[0]->suggestedRewrite);
 
             // Verify objectionable phrases
-            $this->assertEquals('Objectionable &quot;phrase&quot; with &lt;special&gt; characters &amp; slashes.', $commentScore->objectionablePhrases[0]->quotedObjectionablePhrase);
-            $this->assertEquals('Explanation with control characters and slashes.', $commentScore->objectionablePhrases[0]->explanation);
-            $this->assertEquals('Suggested rewrite with &lt;tags&gt; and slashes.', $commentScore->objectionablePhrases[0]->suggestedRewrite);
+            $this->assertEquals('Objectionable &quot;phrase&quot; with &lt;special&gt; characters &amp; symbols.', $commentScore->objectionablePhrases[0]->quotedObjectionablePhrase);
+            $this->assertEquals('Explanation with control characters that are removed.', $commentScore->objectionablePhrases[0]->explanation);
+            $this->assertEquals('Suggested rewrite with &lt;tags&gt; and symbols.', $commentScore->objectionablePhrases[0]->suggestedRewrite);
 
             // Verify negative tone phrases
-            $this->assertEquals('Negative &quot;tone&quot; phrase with &lt;special&gt; characters &amp; slashes.', $commentScore->negativeTonePhrases[0]->quotedNegativeTonePhrase);
-            $this->assertEquals('Explanation with control characters and slashes.', $commentScore->negativeTonePhrases[0]->explanation);
-            $this->assertEquals('Suggested rewrite with &lt;tags&gt; and slashes.', $commentScore->negativeTonePhrases[0]->suggestedRewrite);
+            $this->assertEquals('Negative &quot;tone&quot; phrase with &lt;special&gt; characters &amp; symbols.', $commentScore->negativeTonePhrases[0]->quotedNegativeTonePhrase);
+            $this->assertEquals('Explanation with control characters that are removed.', $commentScore->negativeTonePhrases[0]->explanation);
+            $this->assertEquals('Suggested rewrite with &lt;tags&gt; and symbols.', $commentScore->negativeTonePhrases[0]->suggestedRewrite);
 
             $assertionCalled = true;
         });
@@ -546,5 +546,177 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
         $this->assertNotNull($caughtException, 'Exception should have been caught');
         $this->assertInstanceOf(ServerException::class, $caughtException);
         $this->assertStringContainsString('Internal Server Error', $caughtException->getMessage());
+    }
+
+    public function testUrlFetchError403() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(400);
+        $responseMock->shouldReceive('getReasonPhrase')->andReturn('Bad Request');
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'error' => 'URL Fetch Error',
+            'message' => 'Could not fetch URL: HTTP 403 from https://www.example.com/article',
+            'code' => 400,
+        ]));
+
+        $responseException = new \React\Http\Message\ResponseException($responseMock);
+        $this->browserMock->shouldReceive('post')
+            ->andReturn(\React\Promise\reject($responseException));
+
+        $promise = $this->client->initTopicFromUrl('https://www.example.com/article');
+        $caughtException = null;
+
+        $promise->then(
+            function ($result) { $this->fail('Expected BadRequestException not thrown'); },
+            function ($e) use (&$caughtException) { $caughtException = $e; }
+        );
+
+        $this->client->run();
+
+        $this->assertNotNull($caughtException, 'Exception should have been caught');
+        $this->assertInstanceOf(BadRequestException::class, $caughtException);
+        $this->assertStringContainsString('Could not fetch URL', $caughtException->getMessage());
+        $this->assertStringContainsString('403', $caughtException->getMessage());
+        $this->assertEquals(400, $caughtException->getStatusCode());
+        $this->assertNotNull($caughtException->getResponseData());
+        $this->assertEquals('URL Fetch Error', $caughtException->getResponseData()['error']);
+    }
+
+    public function testUrlFetchError429() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(400);
+        $responseMock->shouldReceive('getReasonPhrase')->andReturn('Bad Request');
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'error' => 'URL Fetch Error',
+            'message' => 'Could not fetch URL: HTTP 429 from https://aeon.co/essays/some-article',
+            'code' => 400,
+        ]));
+
+        $responseException = new \React\Http\Message\ResponseException($responseMock);
+        $this->browserMock->shouldReceive('post')
+            ->andReturn(\React\Promise\reject($responseException));
+
+        $promise = $this->client->initTopicFromUrl('https://aeon.co/essays/some-article');
+        $caughtException = null;
+
+        $promise->then(
+            function ($result) { $this->fail('Expected BadRequestException not thrown'); },
+            function ($e) use (&$caughtException) { $caughtException = $e; }
+        );
+
+        $this->client->run();
+
+        $this->assertNotNull($caughtException, 'Exception should have been caught');
+        $this->assertInstanceOf(BadRequestException::class, $caughtException);
+        $this->assertStringContainsString('Could not fetch URL', $caughtException->getMessage());
+        $this->assertStringContainsString('429', $caughtException->getMessage());
+    }
+
+    public function testUrlFetchError500() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(400);
+        $responseMock->shouldReceive('getReasonPhrase')->andReturn('Bad Request');
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'error' => 'URL Fetch Error',
+            'message' => 'Could not fetch URL: HTTP 500 from https://broken-site.example.com',
+            'code' => 400,
+        ]));
+
+        $responseException = new \React\Http\Message\ResponseException($responseMock);
+        $this->browserMock->shouldReceive('post')
+            ->andReturn(\React\Promise\reject($responseException));
+
+        $promise = $this->client->initTopicFromUrl('https://broken-site.example.com');
+        $caughtException = null;
+
+        $promise->then(
+            function ($result) { $this->fail('Expected BadRequestException not thrown'); },
+            function ($e) use (&$caughtException) { $caughtException = $e; }
+        );
+
+        $this->client->run();
+
+        $this->assertNotNull($caughtException, 'Exception should have been caught');
+        $this->assertInstanceOf(BadRequestException::class, $caughtException);
+        $this->assertStringContainsString('Could not fetch URL', $caughtException->getMessage());
+        $this->assertStringContainsString('500', $caughtException->getMessage());
+    }
+
+    public function testExceptionExposesStatusCodeAndResponseData() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(401);
+        $responseMock->shouldReceive('getReasonPhrase')->andReturn('Unauthorized');
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'error' => 'Unauthorized',
+            'message' => 'Invalid user ID or API key.',
+            'code' => 401,
+        ]));
+
+        $responseException = new \React\Http\Message\ResponseException($responseMock);
+        $this->browserMock->shouldReceive('post')
+            ->andReturn(\React\Promise\reject($responseException));
+
+        $promise = $this->client->evaluateComment(
+            $this->testArticleId,
+            'This is a test comment'
+        );
+        $caughtException = null;
+
+        $promise->then(
+            function ($result) { $this->fail('Expected UnauthorizedException not thrown'); },
+            function ($e) use (&$caughtException) { $caughtException = $e; }
+        );
+
+        $this->client->run();
+
+        $this->assertNotNull($caughtException, 'Exception should have been caught');
+        $this->assertInstanceOf(UnauthorizedException::class, $caughtException);
+
+        // Verify getStatusCode() returns the HTTP status
+        $this->assertEquals(401, $caughtException->getStatusCode());
+
+        // Verify getResponseData() returns the full parsed JSON
+        $responseData = $caughtException->getResponseData();
+        $this->assertNotNull($responseData);
+        $this->assertEquals('Unauthorized', $responseData['error']);
+        $this->assertEquals('Invalid user ID or API key.', $responseData['message']);
+        $this->assertEquals(401, $responseData['code']);
+
+        // Verify getMessage() still works (backwards compatibility)
+        $this->assertStringContainsString('Unauthorized', $caughtException->getMessage());
+        $this->assertStringContainsString('Invalid user ID or API key.', $caughtException->getMessage());
+
+        // Verify getCode() returns the status code (backwards compatibility)
+        $this->assertEquals(401, $caughtException->getCode());
+    }
+
+    public function testFallbackToDescriptionField() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(400);
+        $responseMock->shouldReceive('getReasonPhrase')->andReturn('Bad Request');
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'title' => 'Bad Request',
+            'description' => 'Some raw Falcon error description',
+        ]));
+
+        $responseException = new \React\Http\Message\ResponseException($responseMock);
+        $this->browserMock->shouldReceive('post')
+            ->andReturn(\React\Promise\reject($responseException));
+
+        $promise = $this->client->evaluateComment(
+            $this->testArticleId,
+            'This is a test comment'
+        );
+        $caughtException = null;
+
+        $promise->then(
+            function ($result) { $this->fail('Expected BadRequestException not thrown'); },
+            function ($e) use (&$caughtException) { $caughtException = $e; }
+        );
+
+        $this->client->run();
+
+        $this->assertNotNull($caughtException, 'Exception should have been caught');
+        $this->assertInstanceOf(BadRequestException::class, $caughtException);
+        $this->assertStringContainsString('Some raw Falcon error description', $caughtException->getMessage());
     }
 }
