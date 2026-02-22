@@ -132,21 +132,21 @@ class RespectifyClientAsync {
         }
 
         // Try to get error details from response body.
-        // The server (Falcon) returns errors as {title, description}.
-        // Also check {error, message} for conventional API error format.
+        // The server's error handler sends {error, message, code} for API routes.
+        // Also check 'description' (raw Falcon format) as fallback.
         $body = (string)$response->getBody();
         $errorDetails = '';
         if (!empty($body)) {
             $decoded = json_decode($body, true);
-            if (isset($decoded['description'])) {
-                // Falcon HTTPError format: {title, description}
+            if (isset($decoded['message'])) {
+                // Server API error format: {error, message, code}
+                $errorDetails = ': ' . $decoded['message'];
+            } elseif (isset($decoded['description'])) {
+                // Raw Falcon HTTPError format: {title, description}
                 $errorDetails = ': ' . $decoded['description'];
             } elseif (isset($decoded['error'])) {
-                // Conventional API error format: {error, message}
+                // Error field only (no message)
                 $errorDetails = ': ' . $decoded['error'];
-                if (isset($decoded['message'])) {
-                    $errorDetails .= ' - ' . $decoded['message'];
-                }
             } else {
                 $errorDetails = ': ' . substr($body, 0, 200);
             }
