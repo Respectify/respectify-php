@@ -476,8 +476,9 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
         $responseMock->shouldReceive('getStatusCode')->andReturn(402);
         $responseMock->shouldReceive('getReasonPhrase')->andReturn('Payment Required');
         $responseMock->shouldReceive('getBody')->andReturn(json_encode([
-            'title' => 'Payment Required',
-            'description' => 'Your plan does not include access to this endpoint.'
+            'error' => 'Payment Required',
+            'message' => 'Your plan does not include access to this endpoint.',
+            'code' => 402
         ]));
 
         // Create a ResponseException that wraps our mock response
@@ -514,8 +515,9 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
         $responseMock->shouldReceive('getStatusCode')->andReturn(500);
         $responseMock->shouldReceive('getReasonPhrase')->andReturn('Internal Server Error');
         $responseMock->shouldReceive('getBody')->andReturn(json_encode([
-            'title' => 'Internal Server Error',
-            'description' => 'An unexpected error occurred.'
+            'error' => 'Internal Server Error',
+            'message' => 'An unexpected error occurred.',
+            'code' => 500
         ]));
 
         // Create a ResponseException that wraps our mock response
