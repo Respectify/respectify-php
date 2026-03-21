@@ -20,33 +20,27 @@
 namespace Respectify\Schemas;
 
 /**
- * Represents the result of spam detection analysis.
+ * Score for a single Perspective attribute, with optional span-level detail.
  */
-class SpamDetectionResult {
+class PerspectiveAttributeScore {
 
     /**
-     * Explanation of the spam analysis
-     */
-    public string $reasoning;
-
-    /**
-     * Whether the comment is detected as spam
-     */
-    public bool $isSpam;
-
-    /**
-     * Confidence in the verdict (0.0=uncertain, 1.0=certain the verdict is correct)
+     * Summary score (0.0-1.0 probability)
      * Constraints: ge=0.0, le=1.0
      */
-    public float $confidence;
+    public float $score;
 
     /**
-     * SpamDetectionResult constructor.
+     * Per-span scores identifying which parts of the comment triggered this attribute
+     */
+    public array $spanScores;
+
+    /**
+     * PerspectiveAttributeScore constructor.
      * @param array $data The JSON data from the API
      */
     public function __construct(array $data) {
-        $this->reasoning = $data['reasoning'] ?? '';
-        $this->isSpam = $data['is_spam'] ?? false;
-        $this->confidence = floatval($data['confidence'] ?? 0.0);
+        $this->score = floatval($data['score'] ?? 0.0);
+        $this->spanScores = array_map(fn($item) => new PerspectiveSpanScore($item), $data['span_scores'] ?? []);
     }
 }

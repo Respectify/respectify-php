@@ -41,7 +41,7 @@ class BannedTopicsResult {
     public float $quantityOnBannedTopics;
 
     /**
-     * Confidence level (0.0=low, 1.0=high)
+     * Confidence in the verdict (0.0=uncertain, 1.0=certain the verdict is correct)
      * Constraints: ge=0.0, le=1.0
      */
     public float $confidence;

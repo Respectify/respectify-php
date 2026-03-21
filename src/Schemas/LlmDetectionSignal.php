@@ -20,33 +20,32 @@
 namespace Respectify\Schemas;
 
 /**
- * Represents the result of spam detection analysis.
+ * A specific signal indicating LLM-generated text.
  */
-class SpamDetectionResult {
+class LlmDetectionSignal {
 
     /**
-     * Explanation of the spam analysis
+     * Category: 'word_frequency', 'structural', 'stylistic', 'epistemic'
      */
-    public string $reasoning;
+    public string $signalType;
 
     /**
-     * Whether the comment is detected as spam
+     * What was detected
      */
-    public bool $isSpam;
+    public string $description;
 
     /**
-     * Confidence in the verdict (0.0=uncertain, 1.0=certain the verdict is correct)
-     * Constraints: ge=0.0, le=1.0
+     * The text that triggered this signal, if applicable
      */
-    public float $confidence;
+    public string $quotedText;
 
     /**
-     * SpamDetectionResult constructor.
+     * LlmDetectionSignal constructor.
      * @param array $data The JSON data from the API
      */
     public function __construct(array $data) {
-        $this->reasoning = $data['reasoning'] ?? '';
-        $this->isSpam = $data['is_spam'] ?? false;
-        $this->confidence = floatval($data['confidence'] ?? 0.0);
+        $this->signalType = $data['signal_type'] ?? '';
+        $this->description = $data['description'] ?? '';
+        $this->quotedText = $data['quoted_text'] ?? '';
     }
 }
