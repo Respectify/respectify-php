@@ -30,92 +30,92 @@ class PerspectiveResult {
     /**
      * Rude, disrespectful, or unreasonable content likely to make people leave a discussion
      */
-    public PerspectiveAttributeScore $toxicity;
+    public ?PerspectiveAttributeScore $toxicity;
 
     /**
      * Very hateful, aggressive, or disrespectful content; higher threshold than toxicity
      */
-    public PerspectiveAttributeScore $severeToxicity;
+    public ?PerspectiveAttributeScore $severeToxicity;
 
     /**
      * Negative or hateful content targeting someone because of their identity
      */
-    public PerspectiveAttributeScore $identityAttack;
+    public ?PerspectiveAttributeScore $identityAttack;
 
     /**
      * Insulting, inflammatory, or negative comment towards a person or group
      */
-    public PerspectiveAttributeScore $insult;
+    public ?PerspectiveAttributeScore $insult;
 
     /**
      * Swear words, curse words, or other obscene language
      */
-    public PerspectiveAttributeScore $profanity;
+    public ?PerspectiveAttributeScore $profanity;
 
     /**
      * Intention to inflict pain, injury, or violence
      */
-    public PerspectiveAttributeScore $threat;
+    public ?PerspectiveAttributeScore $threat;
 
     /**
      * References to sexual acts or body parts in sexual context
      */
-    public PerspectiveAttributeScore $sexuallyExplicit;
+    public ?PerspectiveAttributeScore $sexuallyExplicit;
 
     /**
      * Difficult to understand, nonsensical, or poorly written
      */
-    public PerspectiveAttributeScore $incoherent;
+    public ?PerspectiveAttributeScore $incoherent;
 
     /**
      * Intended to provoke or inflame rather than discuss
      */
-    public PerspectiveAttributeScore $inflammatory;
+    public ?PerspectiveAttributeScore $inflammatory;
 
     /**
      * Irrelevant, promotional, or nonsensical content
      */
-    public PerspectiveAttributeScore $spam;
+    public ?PerspectiveAttributeScore $spam;
 
     /**
      * Demonstrates logical reasoning or evidence-based arguments
      */
-    public PerspectiveAttributeScore $reasoning;
+    public ?PerspectiveAttributeScore $reasoning;
 
     /**
      * Shows genuine curiosity, asks thoughtful questions
      */
-    public PerspectiveAttributeScore $curiosity;
+    public ?PerspectiveAttributeScore $curiosity;
 
     /**
      * Demonstrates nuanced thinking, acknowledges complexity
      */
-    public PerspectiveAttributeScore $nuance;
+    public ?PerspectiveAttributeScore $nuance;
 
     /**
      * Shows empathy, understanding, or concern for others
      */
-    public PerspectiveAttributeScore $compassion;
+    public ?PerspectiveAttributeScore $compassion;
 
     /**
      * Contributes constructively, adds to the conversation
      */
-    public PerspectiveAttributeScore $constructiveness;
+    public ?PerspectiveAttributeScore $constructiveness;
 
     /**
      * Treats others and their views with dignity
      */
-    public PerspectiveAttributeScore $respect;
+    public ?PerspectiveAttributeScore $respect;
 
     /**
      * Includes a personal experience as support for statements made
      */
-    public PerspectiveAttributeScore $personalStory;
+    public ?PerspectiveAttributeScore $personalStory;
 
     /**
      * References shared interests, motivations, or outlooks with others
      */
-    public PerspectiveAttributeScore $affinity;
+    public ?PerspectiveAttributeScore $affinity;
 
     /**
      * One-sentence plain-language summary of the comment's character
@@ -127,24 +127,24 @@ class PerspectiveResult {
      * @param array $data The JSON data from the API
      */
     public function __construct(array $data) {
-        $this->toxicity = new PerspectiveAttributeScore($data['toxicity']);
-        $this->severeToxicity = new PerspectiveAttributeScore($data['severe_toxicity']);
-        $this->identityAttack = new PerspectiveAttributeScore($data['identity_attack']);
-        $this->insult = new PerspectiveAttributeScore($data['insult']);
-        $this->profanity = new PerspectiveAttributeScore($data['profanity']);
-        $this->threat = new PerspectiveAttributeScore($data['threat']);
-        $this->sexuallyExplicit = new PerspectiveAttributeScore($data['sexually_explicit']);
-        $this->incoherent = new PerspectiveAttributeScore($data['incoherent']);
-        $this->inflammatory = new PerspectiveAttributeScore($data['inflammatory']);
-        $this->spam = new PerspectiveAttributeScore($data['spam']);
-        $this->reasoning = new PerspectiveAttributeScore($data['reasoning']);
-        $this->curiosity = new PerspectiveAttributeScore($data['curiosity']);
-        $this->nuance = new PerspectiveAttributeScore($data['nuance']);
-        $this->compassion = new PerspectiveAttributeScore($data['compassion']);
-        $this->constructiveness = new PerspectiveAttributeScore($data['constructiveness']);
-        $this->respect = new PerspectiveAttributeScore($data['respect']);
-        $this->personalStory = new PerspectiveAttributeScore($data['personal_story']);
-        $this->affinity = new PerspectiveAttributeScore($data['affinity']);
+        $this->toxicity = isset($data['toxicity']) ? new PerspectiveAttributeScore($data['toxicity']) : null;
+        $this->severeToxicity = isset($data['severe_toxicity']) ? new PerspectiveAttributeScore($data['severe_toxicity']) : null;
+        $this->identityAttack = isset($data['identity_attack']) ? new PerspectiveAttributeScore($data['identity_attack']) : null;
+        $this->insult = isset($data['insult']) ? new PerspectiveAttributeScore($data['insult']) : null;
+        $this->profanity = isset($data['profanity']) ? new PerspectiveAttributeScore($data['profanity']) : null;
+        $this->threat = isset($data['threat']) ? new PerspectiveAttributeScore($data['threat']) : null;
+        $this->sexuallyExplicit = isset($data['sexually_explicit']) ? new PerspectiveAttributeScore($data['sexually_explicit']) : null;
+        $this->incoherent = isset($data['incoherent']) ? new PerspectiveAttributeScore($data['incoherent']) : null;
+        $this->inflammatory = isset($data['inflammatory']) ? new PerspectiveAttributeScore($data['inflammatory']) : null;
+        $this->spam = isset($data['spam']) ? new PerspectiveAttributeScore($data['spam']) : null;
+        $this->reasoning = isset($data['reasoning']) ? new PerspectiveAttributeScore($data['reasoning']) : null;
+        $this->curiosity = isset($data['curiosity']) ? new PerspectiveAttributeScore($data['curiosity']) : null;
+        $this->nuance = isset($data['nuance']) ? new PerspectiveAttributeScore($data['nuance']) : null;
+        $this->compassion = isset($data['compassion']) ? new PerspectiveAttributeScore($data['compassion']) : null;
+        $this->constructiveness = isset($data['constructiveness']) ? new PerspectiveAttributeScore($data['constructiveness']) : null;
+        $this->respect = isset($data['respect']) ? new PerspectiveAttributeScore($data['respect']) : null;
+        $this->personalStory = isset($data['personal_story']) ? new PerspectiveAttributeScore($data['personal_story']) : null;
+        $this->affinity = isset($data['affinity']) ? new PerspectiveAttributeScore($data['affinity']) : null;
         $this->summary = $data['summary'] ?? '';
     }
 }
