@@ -22,6 +22,7 @@ namespace Respectify\Schemas;
 /**
  * Internal schema for LLM output before span resolution.
 The LLM returns quoted_text for spans; Python code then resolves to character positions.
+Every attribute has a corresponding _span field for the most relevant quote (4-25 words).
  */
 class PerspectiveRawScores {
 
@@ -41,6 +42,11 @@ class PerspectiveRawScores {
      * Constraints: ge=0.0, le=1.0
      */
     public float $severeToxicity;
+
+    /**
+     * Quoted text for severe toxicity
+     */
+    public string $severeToxicitySpan;
 
     /**
      * 
@@ -93,10 +99,20 @@ class PerspectiveRawScores {
     public float $sexuallyExplicit;
 
     /**
+     * Quoted text for sexually explicit
+     */
+    public string $sexuallyExplicitSpan;
+
+    /**
      * 
      * Constraints: ge=0.0, le=1.0
      */
     public float $incoherent;
+
+    /**
+     * Quoted text for incoherent
+     */
+    public string $incoherentSpan;
 
     /**
      * 
@@ -105,10 +121,20 @@ class PerspectiveRawScores {
     public float $inflammatory;
 
     /**
+     * Quoted text for inflammatory
+     */
+    public string $inflammatorySpan;
+
+    /**
      * 
      * Constraints: ge=0.0, le=1.0
      */
     public float $spam;
+
+    /**
+     * Quoted text for spam
+     */
+    public string $spamSpan;
 
     /**
      * 
@@ -117,10 +143,20 @@ class PerspectiveRawScores {
     public float $reasoning;
 
     /**
+     * Quoted text for reasoning
+     */
+    public string $reasoningSpan;
+
+    /**
      * 
      * Constraints: ge=0.0, le=1.0
      */
     public float $curiosity;
+
+    /**
+     * Quoted text for curiosity
+     */
+    public string $curiositySpan;
 
     /**
      * 
@@ -129,10 +165,20 @@ class PerspectiveRawScores {
     public float $nuance;
 
     /**
+     * Quoted text for nuance
+     */
+    public string $nuanceSpan;
+
+    /**
      * 
      * Constraints: ge=0.0, le=1.0
      */
     public float $compassion;
+
+    /**
+     * Quoted text for compassion
+     */
+    public string $compassionSpan;
 
     /**
      * 
@@ -141,10 +187,42 @@ class PerspectiveRawScores {
     public float $constructiveness;
 
     /**
+     * Quoted text for constructiveness
+     */
+    public string $constructivenessSpan;
+
+    /**
      * 
      * Constraints: ge=0.0, le=1.0
      */
     public float $respect;
+
+    /**
+     * Quoted text for respect
+     */
+    public string $respectSpan;
+
+    /**
+     * 
+     * Constraints: ge=0.0, le=1.0
+     */
+    public float $personalStory;
+
+    /**
+     * Quoted text for personal story
+     */
+    public string $personalStorySpan;
+
+    /**
+     * 
+     * Constraints: ge=0.0, le=1.0
+     */
+    public float $affinity;
+
+    /**
+     * Quoted text for affinity
+     */
+    public string $affinitySpan;
 
     /**
      * One-sentence summary
@@ -159,6 +237,7 @@ class PerspectiveRawScores {
         $this->toxicity = floatval($data['toxicity'] ?? 0.0);
         $this->toxicitySpan = $data['toxicity_span'] ?? '';
         $this->severeToxicity = floatval($data['severe_toxicity'] ?? 0.0);
+        $this->severeToxicitySpan = $data['severe_toxicity_span'] ?? '';
         $this->identityAttack = floatval($data['identity_attack'] ?? 0.0);
         $this->identityAttackSpan = $data['identity_attack_span'] ?? '';
         $this->insult = floatval($data['insult'] ?? 0.0);
@@ -168,15 +247,29 @@ class PerspectiveRawScores {
         $this->threat = floatval($data['threat'] ?? 0.0);
         $this->threatSpan = $data['threat_span'] ?? '';
         $this->sexuallyExplicit = floatval($data['sexually_explicit'] ?? 0.0);
+        $this->sexuallyExplicitSpan = $data['sexually_explicit_span'] ?? '';
         $this->incoherent = floatval($data['incoherent'] ?? 0.0);
+        $this->incoherentSpan = $data['incoherent_span'] ?? '';
         $this->inflammatory = floatval($data['inflammatory'] ?? 0.0);
+        $this->inflammatorySpan = $data['inflammatory_span'] ?? '';
         $this->spam = floatval($data['spam'] ?? 0.0);
+        $this->spamSpan = $data['spam_span'] ?? '';
         $this->reasoning = floatval($data['reasoning'] ?? 0.0);
+        $this->reasoningSpan = $data['reasoning_span'] ?? '';
         $this->curiosity = floatval($data['curiosity'] ?? 0.0);
+        $this->curiositySpan = $data['curiosity_span'] ?? '';
         $this->nuance = floatval($data['nuance'] ?? 0.0);
+        $this->nuanceSpan = $data['nuance_span'] ?? '';
         $this->compassion = floatval($data['compassion'] ?? 0.0);
+        $this->compassionSpan = $data['compassion_span'] ?? '';
         $this->constructiveness = floatval($data['constructiveness'] ?? 0.0);
+        $this->constructivenessSpan = $data['constructiveness_span'] ?? '';
         $this->respect = floatval($data['respect'] ?? 0.0);
+        $this->respectSpan = $data['respect_span'] ?? '';
+        $this->personalStory = floatval($data['personal_story'] ?? 0.0);
+        $this->personalStorySpan = $data['personal_story_span'] ?? '';
+        $this->affinity = floatval($data['affinity'] ?? 0.0);
+        $this->affinitySpan = $data['affinity_span'] ?? '';
         $this->summary = $data['summary'] ?? '';
     }
 }

@@ -108,6 +108,16 @@ class PerspectiveResult {
     public PerspectiveAttributeScore $respect;
 
     /**
+     * Includes a personal experience as support for statements made
+     */
+    public PerspectiveAttributeScore $personalStory;
+
+    /**
+     * References shared interests, motivations, or outlooks with others
+     */
+    public PerspectiveAttributeScore $affinity;
+
+    /**
      * One-sentence plain-language summary of the comment's character
      */
     public string $summary;
@@ -133,6 +143,8 @@ class PerspectiveResult {
         $this->compassion = new PerspectiveAttributeScore($data['compassion']);
         $this->constructiveness = new PerspectiveAttributeScore($data['constructiveness']);
         $this->respect = new PerspectiveAttributeScore($data['respect']);
+        $this->personalStory = new PerspectiveAttributeScore($data['personal_story']);
+        $this->affinity = new PerspectiveAttributeScore($data['affinity']);
         $this->summary = $data['summary'] ?? '';
     }
 }
