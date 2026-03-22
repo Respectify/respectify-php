@@ -27,6 +27,9 @@ use Respectify\Schemas\DogwhistleDetection;
 use Respectify\Schemas\DogwhistleDetails;
 use Respectify\Schemas\DogwhistleResult;
 use Respectify\Schemas\MegaCallResult;
+use Respectify\Schemas\PerspectiveResult;
+use Respectify\Schemas\LlmDetectionResult;
+use Respectify\Schemas\FeedbackResponse;
 use Respectify\Schemas\InitTopicResponse;
 use Respectify\Schemas\UserCheckResponse;
 
@@ -603,12 +606,17 @@ class RespectifyClientAsync {
             throw new BadRequestException('Article context ID must be provided for relevance, comment score, or dogwhistle checks');
         }
 
+        $includePerspective = in_array('perspective', $services);
+        $includeLlmDetect = in_array('llmdetect', $services);
+
         $data = [
             'comment' => $comment,
             'run_spam_check' => $includeSpam,
             'run_relevance_check' => $includeRelevance,
             'run_comment_score' => $includeCommentScore,
-            'run_dogwhistle_check' => $includeDogwhistle
+            'run_dogwhistle_check' => $includeDogwhistle,
+            'run_perspective' => $includePerspective,
+            'run_llm_detect' => $includeLlmDetect
         ];
 
         if ($articleContextId !== null) {
@@ -664,7 +672,140 @@ class RespectifyClientAsync {
     }
 
     /**
-     * Run the [ReactPHP event loop](https://reactphp.org/event-loop/). This allows other tasks to run while waiting for Respectify API responses. 
+     * Score a comment on Perspective-compatible attributes (toxicity, bridging, etc).
+     *
+     * @param string $comment The comment text to score
+     * @param string|null $articleContextId Optional article context UUID for enhanced scoring
+     * @param array|null $contextComments Optional list of prior comments for conversation context
+     * @param array|null $requestedAttributes Optional list of specific attribute names to score
+     * @return PromiseInterface<PerspectiveResult>
+     */
+    public function evaluatePerspective(string $comment, ?string $articleContextId = null, ?array $contextComments = null, ?array $requestedAttributes = null): PromiseInterface {
+        if (empty($comment)) {
+            throw new BadRequestException('Comment must be provided');
+        }
+
+        $data = ['comment' => $comment];
+        if ($articleContextId !== null) $data['article_context_id'] = $articleContextId;
+        if ($contextComments !== null && !empty($contextComments)) $data['context_comments'] = $contextComments;
+        if ($requestedAttributes !== null && !empty($requestedAttributes)) $data['requested_attributes'] = $requestedAttributes;
+
+        return $this->client->post(
+            $this->getApiUrl('perspective/analyse'),
+            $this->getHeaders(),
+            json_encode($data)
+        )->then(function (ResponseInterface $response) {
+            if ($response->getStatusCode() === 200) {
+                try {
+                    $responseData = json_decode((string)$response->getBody(), true);
+                    $responseData = $this->sanitiseReturnedData($responseData);
+                    return new PerspectiveResult($responseData);
+                } catch (\Exception $e) {
+                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8'));
+                }
+            } else {
+                $this->handleError($response);
+            }
+        })->otherwise(function (\Exception $e) {
+            if ($e instanceof \React\Http\Message\ResponseException) {
+                $this->handleError($e->getResponse());
+            } else {
+                throw $e;
+            }
+        });
+    }
+
+    /**
+     * Check whether a comment appears to be written by an LLM.
+     *
+     * @param string $comment The comment text to analyze
+     * @return PromiseInterface<LlmDetectionResult>
+     */
+    public function checkLlmLikeness(string $comment): PromiseInterface {
+        if (empty($comment)) {
+            throw new BadRequestException('Comment must be provided');
+        }
+
+        return $this->client->post(
+            $this->getApiUrl('llmdetect'),
+            $this->getHeaders(),
+            json_encode(['comment' => $comment])
+        )->then(function (ResponseInterface $response) {
+            if ($response->getStatusCode() === 200) {
+                try {
+                    $responseData = json_decode((string)$response->getBody(), true);
+                    $responseData = $this->sanitiseReturnedData($responseData);
+                    return new LlmDetectionResult($responseData);
+                } catch (\Exception $e) {
+                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8'));
+                }
+            } else {
+                $this->handleError($response);
+            }
+        })->otherwise(function (\Exception $e) {
+            if ($e instanceof \React\Http\Message\ResponseException) {
+                $this->handleError($e->getResponse());
+            } else {
+                throw $e;
+            }
+        });
+    }
+
+    /**
+     * Submit a score correction for any Respectify API.
+     *
+     * @param string $comment The comment text that was scored
+     * @param string $attributeName Which attribute to correct (e.g. 'toxicity')
+     * @param float $originalScore The score the API returned
+     * @param float $suggestedScore What you think the correct score should be
+     * @param string $apiType Which API: 'perspective', 'commentscore', 'antispam', etc.
+     * @param mixed|null $originalResponse The original API response (for reproducibility)
+     * @param string|null $articleContextId Optional article context UUID
+     * @param array|null $contextComments Optional context comments
+     * @return PromiseInterface<FeedbackResponse>
+     */
+    public function submitFeedback(string $comment, string $attributeName, float $originalScore, float $suggestedScore, string $apiType = 'perspective', $originalResponse = null, ?string $articleContextId = null, ?array $contextComments = null): PromiseInterface {
+        if (empty($comment)) {
+            throw new BadRequestException('Comment must be provided');
+        }
+
+        $data = [
+            'comment' => $comment,
+            'attribute_name' => $attributeName,
+            'original_score' => $originalScore,
+            'suggested_score' => $suggestedScore,
+            'api_type' => $apiType,
+        ];
+        if ($originalResponse !== null) $data['original_response'] = $originalResponse;
+        if ($articleContextId !== null) $data['article_context_id'] = $articleContextId;
+        if ($contextComments !== null && !empty($contextComments)) $data['context_comments'] = $contextComments;
+
+        return $this->client->post(
+            $this->getApiUrl('perspective/feedback'),
+            $this->getHeaders(),
+            json_encode($data)
+        )->then(function (ResponseInterface $response) {
+            if ($response->getStatusCode() === 200) {
+                try {
+                    $responseData = json_decode((string)$response->getBody(), true);
+                    return new FeedbackResponse($responseData);
+                } catch (\Exception $e) {
+                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8'));
+                }
+            } else {
+                $this->handleError($response);
+            }
+        })->otherwise(function (\Exception $e) {
+            if ($e instanceof \React\Http\Message\ResponseException) {
+                $this->handleError($e->getResponse());
+            } else {
+                throw $e;
+            }
+        });
+    }
+
+    /**
+     * Run the [ReactPHP event loop](https://reactphp.org/event-loop/). This allows other tasks to run while waiting for Respectify API responses.
      * This **must** be called so that the promises resolve.
      */
     public function run(): void {
