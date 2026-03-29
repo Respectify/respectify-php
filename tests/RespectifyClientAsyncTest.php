@@ -250,8 +250,7 @@ class RespectifyClientAsyncTest extends TestCase {
                 $assertionCalled = true;
             },
             function ($e) use (&$assertionCalled) {
-                print_r("Exception: ");
-                print_r($e);
+                print_r("Exception: " . get_class($e) . ": " . $e->getMessage() . "\n");
                 $this->assertTrue($e instanceof \Respectify\Exceptions\RespectifyException, 'UnauthorizedException was thrown');
                 $assertionCalled = false; // Should never get here
             }
