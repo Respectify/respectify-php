@@ -225,6 +225,17 @@ class PerspectiveRawScores {
     public string $affinitySpan;
 
     /**
+     * 
+     * Constraints: ge=0.0, le=1.0
+     */
+    public float $flirtation;
+
+    /**
+     * Quoted text for flirtation
+     */
+    public string $flirtationSpan;
+
+    /**
      * One-sentence summary
      */
     public string $summary;
@@ -270,6 +281,8 @@ class PerspectiveRawScores {
         $this->personalStorySpan = $data['personal_story_span'] ?? '';
         $this->affinity = floatval($data['affinity'] ?? 0.0);
         $this->affinitySpan = $data['affinity_span'] ?? '';
+        $this->flirtation = floatval($data['flirtation'] ?? 0.0);
+        $this->flirtationSpan = $data['flirtation_span'] ?? '';
         $this->summary = $data['summary'] ?? '';
     }
 }

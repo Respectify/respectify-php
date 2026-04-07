@@ -118,6 +118,11 @@ class PerspectiveResult {
     public ?PerspectiveAttributeScore $affinity;
 
     /**
+     * Non-explicit romantic or sexual interest signaling: pickup lines, appearance compliments, innuendo
+     */
+    public ?PerspectiveAttributeScore $flirtation;
+
+    /**
      * One-sentence plain-language summary of the comment's character
      */
     public string $summary;
@@ -145,6 +150,7 @@ class PerspectiveResult {
         $this->respect = isset($data['respect']) ? new PerspectiveAttributeScore($data['respect']) : null;
         $this->personalStory = isset($data['personal_story']) ? new PerspectiveAttributeScore($data['personal_story']) : null;
         $this->affinity = isset($data['affinity']) ? new PerspectiveAttributeScore($data['affinity']) : null;
+        $this->flirtation = isset($data['flirtation']) ? new PerspectiveAttributeScore($data['flirtation']) : null;
         $this->summary = $data['summary'] ?? '';
     }
 }
