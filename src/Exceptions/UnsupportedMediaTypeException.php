@@ -12,7 +12,6 @@ use Respectify\Exceptions\RespectifyException;
  * the API will return a 415 Unsupported Media Type status code because it has no way to parse that media type.
  * 
  * In practice this might mean a specific document type that the API does not support.
- * Check [the REST API documentation](http://localhost:3000/api/initialize-topic) for the supported media types.
  */
 class UnsupportedMediaTypeException extends RespectifyException {
 }
