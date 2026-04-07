@@ -5,4 +5,7 @@ Searching
 build/cache
 build
 docs
-tests/.env
+
+.env
+.env.*
+!.env.example
