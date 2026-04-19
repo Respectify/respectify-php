@@ -20,26 +20,26 @@
 namespace Respectify\Schemas;
 
 /**
- * Response from submitting feedback/score corrections.
+ * Response returned by Respectify's public Perspective-compatible suggestscore endpoint.
  */
-class FeedbackResponse {
+class PerspectiveSuggestCommentScoreResponse {
 
     /**
-     * 'ok' if feedback was recorded successfully
+     * Echoed requested languages when the caller supplied them
      */
-    public string $status;
+    public ?array $requestedLanguages;
 
     /**
-     * Human-readable confirmation message
+     * Opaque caller token echoed back when supplied
      */
-    public string $message;
+    public ?string $clientToken;
 
     /**
-     * FeedbackResponse constructor.
+     * PerspectiveSuggestCommentScoreResponse constructor.
      * @param array $data The JSON data from the API
      */
     public function __construct(array $data) {
-        $this->status = $data['status'] ?? '';
-        $this->message = $data['message'] ?? '';
+        $this->requestedLanguages = $data['requestedLanguages'] ?? null;
+        $this->clientToken = $data['clientToken'] ?? null;
     }
 }

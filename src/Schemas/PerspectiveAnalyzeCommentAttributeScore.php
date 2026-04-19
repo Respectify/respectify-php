@@ -20,41 +20,26 @@
 namespace Respectify\Schemas;
 
 /**
- * A score for a specific span of text within the comment.
+ * Google-style attribute score entry returned by analyzeComment.
  */
-class PerspectiveSpanScore {
+class PerspectiveAnalyzeCommentAttributeScore {
 
     /**
-     * Start character position in the original comment
-     * Constraints: ge=0
+     * Overall score for the attribute
      */
-    public int $begin;
+    public PerspectiveScore $summaryScore;
 
     /**
-     * End character position in the original comment
-     * Constraints: ge=0
+     * Optional span-level scores when span annotations were requested
      */
-    public int $end;
+    public ?array $spanScores;
 
     /**
-     * Score for this span (0.0-1.0)
-     * Constraints: ge=0.0, le=1.0
-     */
-    public float $score;
-
-    /**
-     * The quoted text from the comment for this span
-     */
-    public string $quotedText;
-
-    /**
-     * PerspectiveSpanScore constructor.
+     * PerspectiveAnalyzeCommentAttributeScore constructor.
      * @param array $data The JSON data from the API
      */
     public function __construct(array $data) {
-        $this->begin = $data['begin'] ?? 0;
-        $this->end = $data['end'] ?? 0;
-        $this->score = floatval($data['score'] ?? 0.0);
-        $this->quotedText = $data['quoted_text'] ?? '';
+        $this->summaryScore = new PerspectiveScore($data['summaryScore']);
+        $this->spanScores = isset($data['spanScores']) ? array_map(fn($item) => new PerspectiveAnalyzeCommentSpanScore($item), $data['spanScores']) : null;
     }
 }

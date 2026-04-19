@@ -27,9 +27,7 @@ use Respectify\Schemas\DogwhistleDetection;
 use Respectify\Schemas\DogwhistleDetails;
 use Respectify\Schemas\DogwhistleResult;
 use Respectify\Schemas\MegaCallResult;
-use Respectify\Schemas\PerspectiveResult;
 use Respectify\Schemas\LlmDetectionResult;
-use Respectify\Schemas\FeedbackResponse;
 use Respectify\Schemas\InitTopicResponse;
 use Respectify\Schemas\UserCheckResponse;
 
@@ -58,6 +56,7 @@ class RespectifyClientAsync {
     private string $baseUrl;
     private string $version;
     private ?string $website;
+    private ?RespectifyPerspectiveClientAsync $perspectiveClient = null;
 
     /**
      * Create an instance of the async Respectify API client.
@@ -277,6 +276,65 @@ class RespectifyClientAsync {
             return array_map([$this, 'sanitiseReturnedData'], $data);
         }
         return $data;
+    }
+
+    /**
+     * Post JSON to an endpoint and construct a schema object from the response.
+     *
+     * @param string $endpoint Endpoint path relative to the API version
+     * @param array $data Request payload
+     * @param string $schemaClass Fully-qualified schema class name
+     * @param bool $sanitiseResponse Whether to HTML-sanitise returned string values
+     * @return PromiseInterface
+     */
+    public function postJsonToSchema(
+        string $endpoint,
+        array $data,
+        string $schemaClass,
+        bool $sanitiseResponse = true
+    ): PromiseInterface {
+        return $this->client->post(
+            $this->getApiUrl($endpoint),
+            $this->getHeaders(),
+            json_encode($data)
+        )->then(function (ResponseInterface $response) use ($schemaClass, $sanitiseResponse) {
+            if ($response->getStatusCode() === 200) {
+                try {
+                    $responseData = json_decode((string)$response->getBody(), true);
+                    if ($sanitiseResponse) {
+                        $responseData = $this->sanitiseReturnedData($responseData);
+                    }
+                    return new $schemaClass($responseData);
+                } catch (\Exception $e) {
+                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8'));
+                }
+            } else {
+                $this->handleError($response);
+            }
+        })->otherwise(function (\Exception $e) {
+            if ($e instanceof \React\Http\Message\ResponseException) {
+                $this->handleError($e->getResponse());
+            } else {
+                throw $e;
+            }
+        });
+    }
+
+    /**
+     * Access the public Perspective compatibility sub-client.
+     *
+     * @return RespectifyPerspectiveClientAsync
+     */
+    public function perspective(): RespectifyPerspectiveClientAsync {
+        if ($this->perspectiveClient === null) {
+            $this->perspectiveClient = new RespectifyPerspectiveClientAsync(
+                function (string $endpoint, array $data, string $schemaClass): PromiseInterface {
+                    return $this->postJsonToSchema($endpoint, $data, $schemaClass);
+                }
+            );
+        }
+
+        return $this->perspectiveClient;
     }
 
     /**
@@ -578,7 +636,7 @@ class RespectifyClientAsync {
      *
      * @param string $comment The comment text to evaluate
      * @param string|null $articleContextId Optional. The article context UUID from initTopicFromText/initTopicFromUrl. Required for relevance, commentScore, and dogwhistle checks.
-     * @param array $services List of services to include in the call. Valid values: 'spam', 'relevance', 'commentscore', 'dogwhistle'
+     * @param array $services List of services to include in the call. Valid values: 'spam', 'relevance', 'commentscore', 'dogwhistle', 'perspectiveAnalyzeComment', 'llmdetect'
      * @param array|null $bannedTopics Optional. List of banned topics to check against when 'relevance' is included
      * @param string|null $replyToComment Optional. The comment to which the evaluated comment is replying, used when 'commentscore' is included
      * @param array|null $sensitiveTopics Optional. List of sensitive topics to watch for when 'dogwhistle' is included
@@ -609,7 +667,7 @@ class RespectifyClientAsync {
             throw new BadRequestException('Article context ID must be provided for relevance, comment score, or dogwhistle checks');
         }
 
-        $includePerspective = in_array('perspective', $services);
+        $includePerspective = in_array('perspectiveAnalyzeComment', $services);
         $includeLlmDetect = in_array('llmdetect', $services);
 
         $data = [
@@ -675,50 +733,6 @@ class RespectifyClientAsync {
     }
 
     /**
-     * Score a comment on Perspective-compatible attributes (toxicity, bridging, etc).
-     *
-     * @param string $comment The comment text to score
-     * @param string|null $articleContextId Optional article context UUID for enhanced scoring
-     * @param array|null $contextComments Optional list of prior comments for conversation context
-     * @param array|null $requestedAttributes Optional list of specific attribute names to score
-     * @return PromiseInterface<PerspectiveResult>
-     */
-    public function evaluatePerspective(string $comment, ?string $articleContextId = null, ?array $contextComments = null, ?array $requestedAttributes = null): PromiseInterface {
-        if (empty($comment)) {
-            throw new BadRequestException('Comment must be provided');
-        }
-
-        $data = ['comment' => $comment];
-        if ($articleContextId !== null) $data['article_context_id'] = $articleContextId;
-        if ($contextComments !== null && !empty($contextComments)) $data['context_comments'] = $contextComments;
-        if ($requestedAttributes !== null && !empty($requestedAttributes)) $data['requested_attributes'] = $requestedAttributes;
-
-        return $this->client->post(
-            $this->getApiUrl('perspective/analyse'),
-            $this->getHeaders(),
-            json_encode($data)
-        )->then(function (ResponseInterface $response) {
-            if ($response->getStatusCode() === 200) {
-                try {
-                    $responseData = json_decode((string)$response->getBody(), true);
-                    $responseData = $this->sanitiseReturnedData($responseData);
-                    return new PerspectiveResult($responseData);
-                } catch (\Exception $e) {
-                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8'));
-                }
-            } else {
-                $this->handleError($response);
-            }
-        })->otherwise(function (\Exception $e) {
-            if ($e instanceof \React\Http\Message\ResponseException) {
-                $this->handleError($e->getResponse());
-            } else {
-                throw $e;
-            }
-        });
-    }
-
-    /**
      * Check whether a comment appears to be written by an LLM.
      *
      * @param string $comment The comment text to analyze
@@ -739,59 +753,6 @@ class RespectifyClientAsync {
                     $responseData = json_decode((string)$response->getBody(), true);
                     $responseData = $this->sanitiseReturnedData($responseData);
                     return new LlmDetectionResult($responseData);
-                } catch (\Exception $e) {
-                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8'));
-                }
-            } else {
-                $this->handleError($response);
-            }
-        })->otherwise(function (\Exception $e) {
-            if ($e instanceof \React\Http\Message\ResponseException) {
-                $this->handleError($e->getResponse());
-            } else {
-                throw $e;
-            }
-        });
-    }
-
-    /**
-     * Submit a score correction for any Respectify API.
-     *
-     * @param string $comment The comment text that was scored
-     * @param string $attributeName Which attribute to correct (e.g. 'toxicity')
-     * @param float $originalScore The score the API returned
-     * @param float $suggestedScore What you think the correct score should be
-     * @param string $apiType Which API: 'perspective', 'commentscore', 'antispam', etc.
-     * @param mixed|null $originalResponse The original API response (for reproducibility)
-     * @param string|null $articleContextId Optional article context UUID
-     * @param array|null $contextComments Optional context comments
-     * @return PromiseInterface<FeedbackResponse>
-     */
-    public function submitFeedback(string $comment, string $attributeName, float $originalScore, float $suggestedScore, string $apiType = 'perspective', $originalResponse = null, ?string $articleContextId = null, ?array $contextComments = null): PromiseInterface {
-        if (empty($comment)) {
-            throw new BadRequestException('Comment must be provided');
-        }
-
-        $data = [
-            'comment' => $comment,
-            'attribute_name' => $attributeName,
-            'original_score' => $originalScore,
-            'suggested_score' => $suggestedScore,
-            'api_type' => $apiType,
-        ];
-        if ($originalResponse !== null) $data['original_response'] = $originalResponse;
-        if ($articleContextId !== null) $data['article_context_id'] = $articleContextId;
-        if ($contextComments !== null && !empty($contextComments)) $data['context_comments'] = $contextComments;
-
-        return $this->client->post(
-            $this->getApiUrl('perspective/feedback'),
-            $this->getHeaders(),
-            json_encode($data)
-        )->then(function (ResponseInterface $response) {
-            if ($response->getStatusCode() === 200) {
-                try {
-                    $responseData = json_decode((string)$response->getBody(), true);
-                    return new FeedbackResponse($responseData);
                 } catch (\Exception $e) {
                     throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8'));
                 }

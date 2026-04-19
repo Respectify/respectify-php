@@ -10,6 +10,7 @@ use Respectify\Schemas\SpamDetectionResult;
 use Respectify\Schemas\CommentRelevanceResult;
 use Respectify\Schemas\DogwhistleResult;
 use Respectify\Schemas\MegaCallResult;
+use Respectify\Schemas\PerspectiveAnalyzeCommentResponse;
 use Respectify\Exceptions\BadRequestException;
 use Respectify\Exceptions\UnauthorizedException;
 use Respectify\Exceptions\PaymentRequiredException;
@@ -206,6 +207,32 @@ class RespectifyClientAsyncTest extends TestCase {
         if ($caughtException) {
             throw $caughtException;
         }
+    }
+
+    public function testPerspectiveAnalyzeCommentSuccess() {
+        $promise = $this->client->perspective()->analyzeComment([
+            'comment' => ['text' => 'You clearly did not read the article.'],
+            'requestedAttributes' => [
+                'TOXICITY' => new \stdClass(),
+                'INSULT' => new \stdClass(),
+            ],
+        ]);
+        $assertionCalled = false;
+
+        $promise->then(function ($result) use (&$assertionCalled) {
+            $this->assertInstanceOf(PerspectiveAnalyzeCommentResponse::class, $result);
+            $this->assertArrayHasKey('TOXICITY', $result->attributeScores);
+            $this->assertIsFloat($result->attributeScores['TOXICITY']->summaryScore->value);
+            $this->assertGreaterThanOrEqual(0.0, $result->attributeScores['TOXICITY']->summaryScore->value);
+            $this->assertLessThanOrEqual(1.0, $result->attributeScores['TOXICITY']->summaryScore->value);
+            $assertionCalled = true;
+        }, function ($error) {
+            $this->fail("Perspective-compatible analyzeComment failed with real API: " . get_class($error) . ": " . $error->getMessage());
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
     }
 
     public function testCheckUserCredentialsSuccess() {
@@ -426,6 +453,35 @@ class RespectifyClientAsyncTest extends TestCase {
         }
     }
     
+    public function testMegacallPerspectiveOnlySuccess() {
+        $promise = $this->client->megacall(
+            'This is a test comment for Perspective compatibility',
+            null,
+            ['perspectiveAnalyzeComment']
+        );
+        $assertionCalled = false;
+
+        $promise->then(function ($result) use (&$assertionCalled) {
+            $this->assertInstanceOf(MegaCallResult::class, $result);
+            $this->assertInstanceOf(PerspectiveAnalyzeCommentResponse::class, $result->perspective);
+            $this->assertArrayHasKey('TOXICITY', $result->perspective->attributeScores);
+            $this->assertNull($result->spamCheck);
+            $this->assertNull($result->relevanceCheck);
+            $this->assertNull($result->commentScore);
+
+            echo "\nMegacall perspective only succeeded with real API";
+            echo "\nPerspective TOXICITY: " . number_format($result->perspective->attributeScores['TOXICITY']->summaryScore->value, 2);
+
+            $assertionCalled = true;
+        }, function ($error) {
+            $this->fail("Megacall perspective only failed with real API: " . get_class($error) . ": " . $error->getMessage());
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
     public function testMegacallSpamOnlySuccess() {
         // Make sure we have an article ID for the real API test
         if (empty($this->testArticleId)) {

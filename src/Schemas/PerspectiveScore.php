@@ -20,27 +20,27 @@
 namespace Respectify\Schemas;
 
 /**
- * Score for a single Perspective attribute, with optional span-level detail.
+ * Google-style score object used in Perspective compatibility responses.
  */
-class PerspectiveAttributeScore {
+class PerspectiveScore {
 
     /**
-     * Summary score (0.0-1.0 probability)
+     * Probability score between 0.0 and 1.0
      * Constraints: ge=0.0, le=1.0
      */
-    public float $score;
+    public float $value;
 
     /**
-     * Per-span scores identifying which parts of the comment triggered this attribute
+     * Score type. Respectify currently returns PROBABILITY.
      */
-    public array $spanScores;
+    public string $type;
 
     /**
-     * PerspectiveAttributeScore constructor.
+     * PerspectiveScore constructor.
      * @param array $data The JSON data from the API
      */
     public function __construct(array $data) {
-        $this->score = floatval($data['score'] ?? 0.0);
-        $this->spanScores = array_map(fn($item) => new PerspectiveSpanScore($item), $data['span_scores'] ?? []);
+        $this->value = floatval($data['value'] ?? 0.0);
+        $this->type = $data['type'] ?? '';
     }
 }

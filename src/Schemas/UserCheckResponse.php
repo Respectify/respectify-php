@@ -50,7 +50,7 @@ class UserCheckResponse {
     /**
      * List of API endpoints allowed for this plan (e.g., ['antispam', 'commentscore'])
      */
-    public array $allowedEndpoints;
+    public ?array $allowedEndpoints;
 
     /**
      * Error message if subscription check failed
@@ -66,7 +66,7 @@ class UserCheckResponse {
         $this->status = $data['status'] ?? null;
         $this->expires = $data['expires'] ?? null;
         $this->planName = $data['plan_name'] ?? null;
-        $this->allowedEndpoints = $data['allowed_endpoints'] ?? [];
+        $this->allowedEndpoints = $data['allowed_endpoints'] ?? null;
         $this->error = $data['error'] ?? null;
     }
 }

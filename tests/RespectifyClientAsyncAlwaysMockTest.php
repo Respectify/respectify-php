@@ -9,7 +9,7 @@ use Respectify\Schemas\CommentScore;
 use Respectify\Schemas\SpamDetectionResult;
 use Respectify\Schemas\CommentRelevanceResult;
 use Respectify\Schemas\MegaCallResult;
-use Respectify\Schemas\PerspectiveResult;
+use Respectify\Schemas\PerspectiveAnalyzeCommentResponse;
 use Respectify\Exceptions\BadRequestException;
 use Respectify\Exceptions\UnauthorizedException;
 use Respectify\Exceptions\PaymentRequiredException;
@@ -471,40 +471,93 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
         $this->assertTrue($assertionCalled, 'MEGACALL: Assertions in the promise were not called - promise may not have resolved');
     }
 
-    public function testEvaluatePerspectiveDoesNotDoubleEscapeQuotedText() {
+    public function testPerspectiveAnalyzeCommentUsesCompatEndpoint() {
         $responseMock = m::mock(ResponseInterface::class);
         $responseMock->shouldReceive('getStatusCode')->andReturn(200);
         $responseMock->shouldReceive('getBody')->andReturn(json_encode([
-            'summary' => 'Perspective summary',
-            'toxicity' => [
-                'score' => 0.73,
-                'span_scores' => [
-                    [
-                        'begin' => 0,
-                        'end' => 24,
-                        'score' => 0.91,
-                        'quoted_text' => '&lt;b&gt;bad&lt;/b&gt; &amp; rude',
-                    ]
+            'attributeScores' => [
+                'TOXICITY' => [
+                    'summaryScore' => [
+                        'value' => 0.73,
+                        'type' => 'PROBABILITY',
+                    ],
+                    'spanScores' => [
+                        [
+                            'begin' => 0,
+                            'end' => 24,
+                            'score' => [
+                                'value' => 0.91,
+                                'type' => 'PROBABILITY',
+                            ],
+                        ]
+                    ],
                 ],
             ],
+            'languages' => ['en'],
         ]));
 
         $this->browserMock->shouldReceive('post')
             ->withArgs(function ($url) {
-                return strpos($url, '/perspective/analyse') !== false;
+                return strpos($url, '/perspective-compat/analyse') !== false;
             })
             ->andReturn(resolve($responseMock));
 
-        $promise = $this->client->evaluatePerspective('This is test text');
+        $promise = $this->client->perspective()->analyzeComment([
+            'comment' => ['text' => 'This is test text'],
+            'spanAnnotations' => true,
+        ]);
         $assertionCalled = false;
 
         $promise->then(function ($result) use (&$assertionCalled) {
-            $this->assertInstanceOf(PerspectiveResult::class, $result);
-            $this->assertNotNull($result->toxicity);
+            $this->assertInstanceOf(PerspectiveAnalyzeCommentResponse::class, $result);
+            $this->assertArrayHasKey('TOXICITY', $result->attributeScores);
             $this->assertEquals(
-                '&lt;b&gt;bad&lt;/b&gt; &amp; rude',
-                $result->toxicity->spanScores[0]->quotedText
+                0.91,
+                $result->attributeScores['TOXICITY']->spanScores[0]->score->value
             );
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testMegacallUsesPerspectiveAnalyzeCommentServiceName() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'comment_score' => null,
+            'spam_check' => null,
+            'relevance_check' => null,
+            'dogwhistle_check' => null,
+            'perspective' => [
+                'attributeScores' => [],
+                'languages' => ['en'],
+            ],
+            'llm_detection' => null,
+        ]));
+
+        $this->browserMock->shouldReceive('post')
+            ->withArgs(function ($url, $headers, $body) {
+                if (strpos($url, '/megacall') === false) {
+                    return false;
+                }
+                $decoded = json_decode($body, true);
+                return isset($decoded['run_perspective']) && $decoded['run_perspective'] === true;
+            })
+            ->andReturn(resolve($responseMock));
+
+        $promise = $this->client->megacall(
+            'This is a test megacall comment',
+            null,
+            ['perspectiveAnalyzeComment']
+        );
+        $assertionCalled = false;
+
+        $promise->then(function ($result) use (&$assertionCalled) {
+            $this->assertInstanceOf(MegaCallResult::class, $result);
+            $this->assertNotNull($result->perspective);
             $assertionCalled = true;
         });
 

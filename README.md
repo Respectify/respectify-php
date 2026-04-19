@@ -8,6 +8,22 @@ This contains the Respectify client, which is currently available only as an asy
 
 Check out `src/RespectifyClientAsync.php`. For info on the REST API that it wraps, have a look [here](https://docs.respectify.org).
 
+If you are migrating from Google's Perspective API, use the dedicated Perspective compatibility sub-client:
+
+```php
+$client->perspective()->analyzeComment([
+    'comment' => ['text' => 'You clearly did not read the article.'],
+    'requestedAttributes' => [
+        'TOXICITY' => new stdClass(),
+        'INSULT' => new stdClass(),
+    ],
+])->then(function ($result) {
+    echo $result->attributeScores['TOXICITY']->summaryScore->value . "\n";
+});
+
+$client->run();
+```
+
 ## Developing
 
 To be able to make changes:
@@ -57,5 +73,4 @@ then you can general doc like so:
 # Run phpDocumentor with --template argument pointed to markdown template
 $ phpdoc --directory=src --target=docs --template="phpdocumentor-markdown-customised/themes/markdown" --title="Respectify PHP Library" -c phpdoc.xml
 ```
-
 
