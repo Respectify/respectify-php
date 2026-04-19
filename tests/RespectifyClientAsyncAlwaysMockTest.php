@@ -9,6 +9,7 @@ use Respectify\Schemas\CommentScore;
 use Respectify\Schemas\SpamDetectionResult;
 use Respectify\Schemas\CommentRelevanceResult;
 use Respectify\Schemas\MegaCallResult;
+use Respectify\Schemas\PerspectiveResult;
 use Respectify\Exceptions\BadRequestException;
 use Respectify\Exceptions\UnauthorizedException;
 use Respectify\Exceptions\PaymentRequiredException;
@@ -468,6 +469,48 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
             $this->fail($errorMessage);
         }
         $this->assertTrue($assertionCalled, 'MEGACALL: Assertions in the promise were not called - promise may not have resolved');
+    }
+
+    public function testEvaluatePerspectiveDoesNotDoubleEscapeQuotedText() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'summary' => 'Perspective summary',
+            'toxicity' => [
+                'score' => 0.73,
+                'span_scores' => [
+                    [
+                        'begin' => 0,
+                        'end' => 24,
+                        'score' => 0.91,
+                        'quoted_text' => '&lt;b&gt;bad&lt;/b&gt; &amp; rude',
+                    ]
+                ],
+            ],
+        ]));
+
+        $this->browserMock->shouldReceive('post')
+            ->withArgs(function ($url) {
+                return strpos($url, '/perspective/analyse') !== false;
+            })
+            ->andReturn(resolve($responseMock));
+
+        $promise = $this->client->evaluatePerspective('This is test text');
+        $assertionCalled = false;
+
+        $promise->then(function ($result) use (&$assertionCalled) {
+            $this->assertInstanceOf(PerspectiveResult::class, $result);
+            $this->assertNotNull($result->toxicity);
+            $this->assertEquals(
+                '&lt;b&gt;bad&lt;/b&gt; &amp; rude',
+                $result->toxicity->spanScores[0]->quotedText
+            );
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
     }
 
     public function testPaymentRequiredExceptionOn402() {

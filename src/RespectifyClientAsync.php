@@ -266,6 +266,9 @@ class RespectifyClientAsync {
             $data = trim($data);
             // Remove control characters
             $data = preg_replace('/[\x00-\x1F\x7F]/u', '', $data);
+            // Decode any already-escaped entities before escaping again so
+            // SDK sanitisation stays idempotent for backend-provided safe text.
+            $data = htmlspecialchars_decode($data, ENT_QUOTES);
             // Convert special characters to HTML entities to prevent XSS.
             // Note: json_decode() already handles JSON escape sequences, so no
             // stripslashes() is needed here - it would corrupt legitimate backslashes.
