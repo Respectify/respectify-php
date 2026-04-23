@@ -25,12 +25,12 @@ namespace Respectify\Schemas;
 class PerspectiveAnalyzeCommentAttributeScore {
 
     /**
-     * Overall score for the attribute
+     * Overall score for the attribute. This is the main score most integrations use for thresholds and moderation decisions.
      */
     public PerspectiveScore $summaryScore;
 
     /**
-     * Optional span-level scores when span annotations were requested
+     * Optional scores for specific spans of text that contributed to the attribute. Returned only when span annotations were requested.
      */
     public ?array $spanScores;
 

@@ -25,22 +25,22 @@ namespace Respectify\Schemas;
 class PerspectiveAnalyzeCommentResponse {
 
     /**
-     * Map of requested Perspective attribute names to Google-style score objects
+     * Map of requested Perspective attribute names, such as `TOXICITY` or `INSULT`, to their score objects. Each value contains a `summaryScore` and, when requested, optional `spanScores`.
      */
     public array $attributeScores;
 
     /**
-     * Requested or effective language context for this response
+     * Requested or effective language context for this response, as language codes such as `en`, `es`, or `fr`.
      */
     public array $languages;
 
     /**
-     * Present only if Respectify actually detected languages
+     * Present only if Respectify actually detected languages, as language codes such as `en`, `es`, or `fr`.
      */
     public ?array $detectedLanguages;
 
     /**
-     * Opaque caller token echoed back when supplied
+     * Caller-provided correlation token, echoed back unchanged when supplied. Use this if you want to match the response to your own request ID.
      */
     public ?string $clientToken;
 

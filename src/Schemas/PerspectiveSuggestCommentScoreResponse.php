@@ -25,12 +25,12 @@ namespace Respectify\Schemas;
 class PerspectiveSuggestCommentScoreResponse {
 
     /**
-     * Echoed requested languages when the caller supplied them
+     * Echoed requested languages when the caller supplied them, as language codes such as `en`, `es`, or `fr`.
      */
     public ?array $requestedLanguages;
 
     /**
-     * Opaque caller token echoed back when supplied
+     * Caller-provided correlation token, echoed back unchanged when supplied. Use this if you want to match the response to your own request ID.
      */
     public ?string $clientToken;
 

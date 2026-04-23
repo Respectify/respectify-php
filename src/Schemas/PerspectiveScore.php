@@ -25,13 +25,13 @@ namespace Respectify\Schemas;
 class PerspectiveScore {
 
     /**
-     * Probability score between 0.0 and 1.0
+     * Probability-style score between 0.0 and 1.0. Higher numbers mean more of the requested attribute.
      * Constraints: ge=0.0, le=1.0
      */
     public float $value;
 
     /**
-     * Score type. Respectify currently returns PROBABILITY.
+     * Score type. Respectify currently returns `PROBABILITY`, meaning the value is a 0 to 1 probability-style score.
      */
     public string $type;
 
