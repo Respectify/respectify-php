@@ -7,6 +7,7 @@ use React\EventLoop\Loop;
 use React\Promise\PromiseInterface;
 use Psr\Http\Message\ResponseInterface;
 use Respectify\Exceptions\BadRequestException;
+use Respectify\Exceptions\ArticleContextNotFoundException;
 use Respectify\Exceptions\UnauthorizedException;
 use Respectify\Exceptions\PaymentRequiredException;
 use Respectify\Exceptions\UnsupportedMediaTypeException;
@@ -158,6 +159,13 @@ class RespectifyClientAsync {
         $statusCode = $response->getStatusCode();
         switch ($statusCode) {
             case 400:
+                // A well-formed-but-unresolvable article context returns a 400 with a
+                // stable message. Surface it as a dedicated exception (a BadRequestException
+                // subclass, so existing catch blocks still work) so callers can regenerate
+                // the article context and retry.
+                if ($this->isArticleContextNotFound($decoded)) {
+                    throw new ArticleContextNotFoundException('Bad Request' . $errorDetails, $statusCode, $decoded);
+                }
                 throw new BadRequestException('Bad Request' . $errorDetails, $statusCode, $decoded);
             case 401:
                 throw new UnauthorizedException('Unauthorized' . $errorDetails, $statusCode, $decoded);
@@ -171,6 +179,29 @@ class RespectifyClientAsync {
                 }
                 throw new RespectifyException('Error ' . $statusCode . $errorDetails, $statusCode, $decoded);
         }
+    }
+
+    /**
+     * Detect the "article context not found" condition from a decoded 400 error body.
+     *
+     * The server sends {error, message, code} for API routes (and Falcon's raw
+     * {title, description} in some cases). We match the stable marker case-insensitively
+     * across whichever field carries the human text.
+     *
+     * @param array<string, mixed>|null $decoded The decoded JSON error body, if any.
+     * @return bool True if the body indicates an unresolvable article context.
+     */
+    private function isArticleContextNotFound(?array $decoded): bool {
+        if (!is_array($decoded)) {
+            return false;
+        }
+        foreach (['message', 'error', 'description', 'title'] as $field) {
+            if (isset($decoded[$field]) && is_string($decoded[$field])
+                && stripos($decoded[$field], ArticleContextNotFoundException::MARKER) !== false) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
