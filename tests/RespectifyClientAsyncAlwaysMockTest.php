@@ -11,6 +11,7 @@ use Respectify\Schemas\CommentRelevanceResult;
 use Respectify\Schemas\MegaCallResult;
 use Respectify\Schemas\PerspectiveAnalyzeCommentResponse;
 use Respectify\Exceptions\BadRequestException;
+use Respectify\Exceptions\ArticleContextNotFoundException;
 use Respectify\Exceptions\UnauthorizedException;
 use Respectify\Exceptions\PaymentRequiredException;
 use Respectify\Exceptions\UnsupportedMediaTypeException;
@@ -603,6 +604,48 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
         $this->assertNotNull($caughtException, 'Exception should have been caught');
         $this->assertInstanceOf(PaymentRequiredException::class, $caughtException);
         $this->assertStringContainsString('Payment Required', $caughtException->getMessage());
+    }
+
+    public function testArticleContextNotFoundExceptionOn400() {
+        // A well-formed but unresolvable article context id returns a 400 with the
+        // stable not-found message. It must map to ArticleContextNotFoundException,
+        // which (being a BadRequestException subclass) is still caught as a bad request.
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(400);
+        $responseMock->shouldReceive('getReasonPhrase')->andReturn('Bad Request');
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'error' => 'Article Context Not Found',
+            'message' => 'Article context not found - it may need to be regenerated',
+            'code' => 400
+        ]));
+
+        $responseException = new \React\Http\Message\ResponseException($responseMock);
+
+        $this->browserMock->shouldReceive('post')
+            ->andReturn(\React\Promise\reject($responseException));
+
+        $promise = $this->client->megacall(
+            'This is a test comment',
+            $this->testArticleId,
+            ['commentscore']
+        );
+        $caughtException = null;
+
+        $promise->then(
+            function ($result) {
+                $this->fail('Expected ArticleContextNotFoundException not thrown');
+            },
+            function ($e) use (&$caughtException) {
+                $caughtException = $e;
+            }
+        );
+
+        $this->client->run();
+
+        $this->assertNotNull($caughtException, 'Exception should have been caught');
+        $this->assertInstanceOf(ArticleContextNotFoundException::class, $caughtException);
+        $this->assertInstanceOf(BadRequestException::class, $caughtException);
+        $this->assertEquals(400, $caughtException->getStatusCode());
     }
 
     public function testServerExceptionOn500() {
