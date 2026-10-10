@@ -61,6 +61,20 @@ $client->evaluateComment($articleId, $comment, null, $tolerances)->then(function
 $client->run();
 ```
 
+### Errors and logging
+
+API failures reject the promise with a `RespectifyException` subclass (`BadRequestException`, `UnauthorizedException`,
+`PaymentRequiredException`, `ServerException`, `JsonDecodingException`, and so on).
+
+`getMessage()` is safe to log. When the library builds a message from an API response, the message carries only the
+kind of error, the HTTP status, the server's error title, and the server's error description when that description is
+one of Respectify's known fixed strings, for example `Unauthorized (HTTP 401): Authentication failed - Invalid user ID
+or API key.`. It never contains a raw response body, an excerpt of JSON that failed to decode, or anything the server
+echoed back from the request. That matters because responses can contain the user's comment text.
+
+If you need the full detail while debugging, `getResponseData()` returns the parsed error JSON and `getResponseBody()`
+returns the raw body. Both may contain user content: do not log them, store them, or show them to other users.
+
 ## Developing
 
 To be able to make changes:

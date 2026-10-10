@@ -859,7 +859,11 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
 
         $this->assertNotNull($caughtException, 'Exception should have been caught');
         $this->assertInstanceOf(BadRequestException::class, $caughtException);
-        $this->assertStringContainsString('Some raw Falcon error description', $caughtException->getMessage());
+        // The title reaches the message; an unrecognised description could echo the request, so it stays out of
+        // getMessage() and is only reachable through getResponseData()
+        $this->assertStringContainsString('Bad Request', $caughtException->getMessage());
+        $this->assertStringNotContainsString('Some raw Falcon error description', $caughtException->getMessage());
+        $this->assertEquals('Some raw Falcon error description', $caughtException->getResponseData()['description']);
     }
 
     /**
@@ -1111,7 +1115,10 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
         $this->client->run();
 
         $this->assertInstanceOf(BadRequestException::class, $caughtException);
-        $this->assertStringContainsString('can be made stricter but not relaxed', $caughtException->getMessage());
+        // The server's tolerance errors wrap validation text that can quote submitted values, so the detail is
+        // reachable through getResponseData() but not copied into getMessage()
+        $this->assertStringContainsString('Bad Request', $caughtException->getMessage());
+        $this->assertStringContainsString('can be made stricter but not relaxed', $caughtException->getResponseData()['message']);
         $this->assertEquals(400, $caughtException->getStatusCode());
     }
 

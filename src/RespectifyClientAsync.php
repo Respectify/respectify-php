@@ -14,6 +14,7 @@ use Respectify\Exceptions\UnsupportedMediaTypeException;
 use Respectify\Exceptions\ServerException;
 use Respectify\Exceptions\JsonDecodingException;
 use Respectify\Exceptions\RespectifyException;
+use Respectify\Exceptions\SafeErrorDetails;
 
 // Import auto-generated schema classes (generated from Python schemas.py)
 use Respectify\Schemas\LogicalFallacy;
@@ -116,7 +117,12 @@ class RespectifyClientAsync {
     /**
      * Handle errors from the API response. This always raises an exception. Ideally, $response is a ResponseInterface
      * but handle anything.
-     * @param mixed $response
+     *
+     * The message carries only the error kind, the HTTP status, and what {@see SafeErrorDetails} allows from the
+     * body: never the raw body, which can echo the user's comment. The parsed body and raw body ride on the
+     * exception for callers that explicitly ask for them.
+     *
+     * @param mixed $response The failed response, or whatever the transport produced instead.
      * @throws BadRequestException
      * @throws UnauthorizedException
      * @throws PaymentRequiredException
@@ -124,7 +130,7 @@ class RespectifyClientAsync {
      * @throws ServerException
      * @throws RespectifyException
      */
-    private function handleError(mixed $response): void {
+    private function handleError($response): void {
         if ($response === null) {
             throw new RespectifyException('Unknown error occurred: response is null');
         }
@@ -135,27 +141,18 @@ class RespectifyClientAsync {
             throw new RespectifyException('Unknown error occurred');
         }
 
-        // Try to get error details from response body.
-        // The server's error handler sends {error, message, code} for API routes.
-        // Also check 'description' (raw Falcon format) as fallback.
+        // The server's error handler sends {error, message, code} for API routes, Falcon's raw
+        // {title, description} in some cases, and {error: {code, message, status}} for Perspective-compat routes.
         $body = (string)$response->getBody();
         $decoded = null;
-        $errorDetails = '';
-        if (!empty($body)) {
-            $decoded = json_decode($body, true);
-            if (isset($decoded['error'])) {
-                // Server API error format: {error, message, code}
-                $errorDetails = ': ' . $decoded['error'];
-                if (isset($decoded['message'])) {
-                    $errorDetails .= ' - ' . $decoded['message'];
-                }
-            } elseif (isset($decoded['description'])) {
-                // Raw Falcon HTTPError format: {title, description}
-                $errorDetails = ': ' . $decoded['description'];
-            } else {
-                $errorDetails = ': ' . substr($body, 0, 200);
+        if ($body !== '') {
+            $candidate = json_decode($body, true);
+            if (is_array($candidate)) {
+                $decoded = $candidate;
             }
         }
+        $errorDetails = SafeErrorDetails::describe($decoded);
+        $rawBody = $body !== '' ? $body : null;
 
         $statusCode = $response->getStatusCode();
         switch ($statusCode) {
@@ -165,21 +162,66 @@ class RespectifyClientAsync {
                 // subclass, so existing catch blocks still work) so callers can regenerate
                 // the article context and retry.
                 if ($this->isArticleContextNotFound($decoded)) {
-                    throw new ArticleContextNotFoundException('Bad Request' . $errorDetails, $statusCode, $decoded);
+                    throw new ArticleContextNotFoundException('Bad Request (HTTP 400)' . $errorDetails, $statusCode, $decoded, null, $rawBody);
                 }
-                throw new BadRequestException('Bad Request' . $errorDetails, $statusCode, $decoded);
+                throw new BadRequestException('Bad Request (HTTP 400)' . $errorDetails, $statusCode, $decoded, null, $rawBody);
             case 401:
-                throw new UnauthorizedException('Unauthorized' . $errorDetails, $statusCode, $decoded);
+                throw new UnauthorizedException('Unauthorized (HTTP 401)' . $errorDetails, $statusCode, $decoded, null, $rawBody);
             case 402:
-                throw new PaymentRequiredException('Payment Required' . $errorDetails, $statusCode, $decoded);
+                throw new PaymentRequiredException('Payment Required (HTTP 402)' . $errorDetails, $statusCode, $decoded, null, $rawBody);
             case 415:
-                throw new UnsupportedMediaTypeException('Unsupported Media Type' . $errorDetails, $statusCode, $decoded);
+                throw new UnsupportedMediaTypeException('Unsupported Media Type (HTTP 415)' . $errorDetails, $statusCode, $decoded, null, $rawBody);
             default:
                 if ($statusCode >= 500) {
-                    throw new ServerException('Server Error ' . $statusCode . $errorDetails, $statusCode, $decoded);
+                    throw new ServerException('Server Error ' . $statusCode . $errorDetails, $statusCode, $decoded, null, $rawBody);
                 }
-                throw new RespectifyException('Error ' . $statusCode . $errorDetails, $statusCode, $decoded);
+                throw new RespectifyException('Error ' . $statusCode . $errorDetails, $statusCode, $decoded, null, $rawBody);
         }
+    }
+
+    /**
+     * Decode a successful response body that must be a JSON object.
+     *
+     * On failure the message names only the JSON error (for example "Syntax error"), never any of the body;
+     * the raw body is attached for {@see RespectifyException::getResponseBody()}.
+     *
+     * @param ResponseInterface $response The 200 response.
+     * @return array<string, mixed> The decoded object.
+     * @throws JsonDecodingException If the body is not a JSON object.
+     */
+    private function decodeJsonObject(ResponseInterface $response): array {
+        $body = (string)$response->getBody();
+        $decoded = json_decode($body, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new JsonDecodingException('Error decoding JSON response: ' . json_last_error_msg(), 0, null, null, $body);
+        }
+        if (!is_array($decoded)) {
+            throw new JsonDecodingException('Error decoding JSON response: expected a JSON object', 0, null, null, $body);
+        }
+        return $decoded;
+    }
+
+    /**
+     * The exception for a successful response whose JSON did not fit the expected schema.
+     *
+     * Only the class of the underlying error is named; its message is not carried over or chained, so nothing
+     * from the body can reach getMessage() or __toString().
+     *
+     * @param \Throwable $error What went wrong while building the result.
+     * @param ResponseInterface $response The 200 response.
+     * @return JsonDecodingException The exception to throw.
+     */
+    private function unexpectedResponseStructure(\Throwable $error, ResponseInterface $response): JsonDecodingException {
+        if ($error instanceof JsonDecodingException) {
+            return $error;
+        }
+        return new JsonDecodingException(
+            'Error decoding JSON response: unexpected response structure (' . get_class($error) . ')',
+            0,
+            null,
+            null,
+            (string)$response->getBody()
+        );
     }
 
     /**
@@ -221,14 +263,14 @@ class RespectifyClientAsync {
         )->then(function (ResponseInterface $response) {
             if ($response->getStatusCode() === 200) {
                 try {
-                    $responseData = json_decode((string)$response->getBody(), true);
+                    $responseData = $this->decodeJsonObject($response);
                     if (isset($responseData['article_id'])) {
                         return $responseData['article_id'];
                     } else {
-                        throw new JsonDecodingException('Error: article_id not found in the JSON response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
+                        throw new JsonDecodingException('Error decoding JSON response: article_id not found in the JSON response', 0, null, null, (string)$response->getBody());
                     }
-                } catch (\Exception $e) {
-                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . ' from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
+                } catch (\Throwable $e) {
+                    throw $this->unexpectedResponseStructure($e, $response);
                 }
             } else {
                 $this->handleError($response);
@@ -332,13 +374,13 @@ class RespectifyClientAsync {
         )->then(function (ResponseInterface $response) use ($schemaClass, $sanitiseResponse) {
             if ($response->getStatusCode() === 200) {
                 try {
-                    $responseData = json_decode((string)$response->getBody(), true);
+                    $responseData = $this->decodeJsonObject($response);
                     if ($sanitiseResponse) {
                         $responseData = $this->sanitiseReturnedData($responseData);
                     }
                     return new $schemaClass($responseData);
-                } catch (\Exception $e) {
-                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8'));
+                } catch (\Throwable $e) {
+                    throw $this->unexpectedResponseStructure($e, $response);
                 }
             } else {
                 $this->handleError($response);
@@ -431,7 +473,7 @@ class RespectifyClientAsync {
         )->then(function (ResponseInterface $response) {
             if ($response->getStatusCode() === 200) {
                 try {
-                    $responseData = json_decode((string)$response->getBody(), true);
+                    $responseData = $this->decodeJsonObject($response);
 
                     // Sanitise the data. It was sanitised when sent to the API, but the return results will include
                     // parts of what the user wrote, so need to be sanitised.
@@ -442,8 +484,8 @@ class RespectifyClientAsync {
                     $responseData = $this->sanitiseReturnedData($responseData);
 
                     return new CommentScore($responseData);
-                } catch (\Exception $e) {
-                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . ' from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
+                } catch (\Throwable $e) {
+                    throw $this->unexpectedResponseStructure($e, $response);
                 }
             } else {
                 $this->handleError($response);
@@ -483,20 +525,24 @@ class RespectifyClientAsync {
                 $this->handleError($response);
             }
             try {
-                $responseData = json_decode((string)$response->getBody(), true);
+                $responseData = $this->decodeJsonObject($response);
                 if (isset($responseData['active'])) {
                     return new UserCheckResponse($responseData);
                 } else {
-                    throw new JsonDecodingException('Unexpected response structure from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
+                    throw new JsonDecodingException('Unexpected response structure: the "active" field is missing', 0, null, null, (string)$response->getBody());
                 }
             } catch (JsonDecodingException $e) {
                 throw $e;
-            } catch (\Exception $e) {
-                throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . ' from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
+            } catch (\Throwable $e) {
+                throw $this->unexpectedResponseStructure($e, $response);
             }
         })->otherwise(function (\Exception $e) {
+            // Our own exceptions (eg a JsonDecodingException from above) already carry a safe message and the right type
+            if ($e instanceof RespectifyException) {
+                throw $e;
+            }
             if ($e instanceof \React\Socket\ConnectException) {
-                throw new RespectifyException('Service not found: ' . $e->getMessage(), $e->getCode(), $e);
+                throw new RespectifyException('Service not found: ' . $e->getMessage(), $e->getCode(), null, $e);
             }
             if ($e instanceof \React\Http\Message\ResponseException) {
                 $response = $e->getResponse();
@@ -507,7 +553,7 @@ class RespectifyClientAsync {
                 }
             }
             // Fallback: rethrow or wrap the original error for better debugging.
-            throw new RespectifyException('Error: ' . get_class($e) . ": " . $e->getMessage(), $e->getCode(), $e);
+            throw new RespectifyException('Error: ' . get_class($e) . ": " . $e->getMessage(), $e->getCode(), null, $e);
         });
     }
 
@@ -543,14 +589,14 @@ class RespectifyClientAsync {
         )->then(function (ResponseInterface $response) {
             if ($response->getStatusCode() === 200) {
                 try {
-                    $responseData = json_decode((string)$response->getBody(), true);
+                    $responseData = $this->decodeJsonObject($response);
                     
                     // Sanitize the response data
                     $responseData = $this->sanitiseReturnedData($responseData);
                     
                     return new SpamDetectionResult($responseData);
-                } catch (\Exception $e) {
-                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . ' from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
+                } catch (\Throwable $e) {
+                    throw $this->unexpectedResponseStructure($e, $response);
                 }
             } else {
                 $this->handleError($response);
@@ -604,14 +650,14 @@ class RespectifyClientAsync {
         )->then(function (ResponseInterface $response) {
             if ($response->getStatusCode() === 200) {
                 try {
-                    $responseData = json_decode((string)$response->getBody(), true);
+                    $responseData = $this->decodeJsonObject($response);
                     
                     // Sanitize the response data
                     $responseData = $this->sanitiseReturnedData($responseData);
                     
                     return new CommentRelevanceResult($responseData);
-                } catch (\Exception $e) {
-                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . ' from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
+                } catch (\Throwable $e) {
+                    throw $this->unexpectedResponseStructure($e, $response);
                 }
             } else {
                 $this->handleError($response);
@@ -669,14 +715,14 @@ class RespectifyClientAsync {
         )->then(function (ResponseInterface $response) {
             if ($response->getStatusCode() === 200) {
                 try {
-                    $responseData = json_decode((string)$response->getBody(), true);
+                    $responseData = $this->decodeJsonObject($response);
                     
                     // Sanitize the response data
                     $responseData = $this->sanitiseReturnedData($responseData);
                     
                     return new DogwhistleResult($responseData);
-                } catch (\Exception $e) {
-                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . ' from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
+                } catch (\Throwable $e) {
+                    throw $this->unexpectedResponseStructure($e, $response);
                 }
             } else {
                 $this->handleError($response);
@@ -775,17 +821,13 @@ class RespectifyClientAsync {
         )->then(function (ResponseInterface $response) {
             if ($response->getStatusCode() === 200) {
                 try {
-                    $responseData = json_decode((string)$response->getBody(), true);
-                    
-                    if ($responseData === null) {
-                        throw new JsonDecodingException('Failed to decode JSON response');
-                    }
+                    $responseData = $this->decodeJsonObject($response);
                     
                     $responseData = $this->sanitiseReturnedData($responseData);
                     
                     return new MegaCallResult($responseData);
-                } catch (\Exception $e) {
-                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . ' from response: ' . htmlspecialchars($response->getBody(), ENT_QUOTES, 'UTF-8'));
+                } catch (\Throwable $e) {
+                    throw $this->unexpectedResponseStructure($e, $response);
                 }
             } else {
                 $this->handleError($response);
@@ -818,11 +860,11 @@ class RespectifyClientAsync {
         )->then(function (ResponseInterface $response) {
             if ($response->getStatusCode() === 200) {
                 try {
-                    $responseData = json_decode((string)$response->getBody(), true);
+                    $responseData = $this->decodeJsonObject($response);
                     $responseData = $this->sanitiseReturnedData($responseData);
                     return new LlmDetectionResult($responseData);
-                } catch (\Exception $e) {
-                    throw new JsonDecodingException('Error decoding JSON response: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8'));
+                } catch (\Throwable $e) {
+                    throw $this->unexpectedResponseStructure($e, $response);
                 }
             } else {
                 $this->handleError($response);
