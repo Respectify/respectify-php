@@ -21,9 +21,9 @@ namespace Respectify\Schemas;
 
 /**
  * Response from the usercheck endpoint containing subscription status.
-
-This is returned directly as the API response - no wrapper needed since
-HTTP 200 indicates success and HTTP 4xx indicates errors.
+ *
+ * This is returned directly as the API response - no wrapper needed since
+ * HTTP 200 indicates success and HTTP 4xx indicates errors.
  */
 class UserCheckResponse {
 
