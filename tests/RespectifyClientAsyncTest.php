@@ -11,6 +11,9 @@ use Respectify\Schemas\CommentRelevanceResult;
 use Respectify\Schemas\DogwhistleResult;
 use Respectify\Schemas\MegaCallResult;
 use Respectify\Schemas\PerspectiveAnalyzeCommentResponse;
+use Respectify\Moderation\ModerationCategory;
+use Respectify\Moderation\ModerationTolerances;
+use Respectify\Moderation\ToleranceLevel;
 use Respectify\Exceptions\BadRequestException;
 use Respectify\Exceptions\UnauthorizedException;
 use Respectify\Exceptions\PaymentRequiredException;
@@ -149,6 +152,36 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->assertInstanceOf(CommentScore::class, $commentScore);
             $this->assertTrue($commentScore->overallScore <= 2); // Real-world result will be 1 or 2
             $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testEvaluateCommentWithTolerancesSuccess() {
+        $tolerances = new ModerationTolerances([
+            ModerationCategory::INSULT => ToleranceLevel::STRICT,
+            ModerationCategory::PROFANITY => ToleranceLevel::RELAXED,
+        ]);
+        $promise = $this->client->evaluateComment(
+            $this->testArticleId,
+            'This is a test comment',
+            null,
+            $tolerances
+        );
+        $assertionCalled = false;
+
+        $promise->then(function ($commentScore) use (&$assertionCalled) {
+            $this->assertInstanceOf(CommentScore::class, $commentScore);
+            $this->assertIsBool($commentScore->exceedsTolerance);
+            // The per-call overrides are reported back in the tolerances the score was judged under
+            $this->assertSame('strict', $commentScore->tolerances->levelFor(ModerationCategory::INSULT));
+            $this->assertSame('relaxed', $commentScore->tolerances->levelFor(ModerationCategory::PROFANITY));
+            $this->assertCount(9, $commentScore->tolerances->toArray(), 'The server reports all nine categories');
+            $assertionCalled = true;
+        }, function ($error) {
+            $this->fail('evaluateComment with tolerances failed with real API: ' . get_class($error) . ': ' . $error->getMessage());
         });
 
         $this->client->run();

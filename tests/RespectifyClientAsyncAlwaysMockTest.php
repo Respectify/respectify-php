@@ -10,6 +10,9 @@ use Respectify\Schemas\SpamDetectionResult;
 use Respectify\Schemas\CommentRelevanceResult;
 use Respectify\Schemas\MegaCallResult;
 use Respectify\Schemas\PerspectiveAnalyzeCommentResponse;
+use Respectify\Moderation\ModerationCategory;
+use Respectify\Moderation\ModerationTolerances;
+use Respectify\Moderation\ToleranceLevel;
 use Respectify\Exceptions\BadRequestException;
 use Respectify\Exceptions\ArticleContextNotFoundException;
 use Respectify\Exceptions\UnauthorizedException;
@@ -857,5 +860,339 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
         $this->assertNotNull($caughtException, 'Exception should have been caught');
         $this->assertInstanceOf(BadRequestException::class, $caughtException);
         $this->assertStringContainsString('Some raw Falcon error description', $caughtException->getMessage());
+    }
+
+    /**
+     * A comment score response carrying the moderation tolerance fields, as the API returns them.
+     * @param array<string, mixed> $overrides Top-level fields to replace.
+     * @return array<string, mixed>
+     */
+    private function toleranceCommentScoreResponse(array $overrides = []): array {
+        return array_merge([
+            'logical_fallacies' => [
+                [
+                    'fallacy_name' => 'Straw man',
+                    'quoted_logical_fallacy_example' => 'So you <want> chaos?',
+                    'explanation' => 'Misrepresents the argument.',
+                    'suggested_rewrite' => '',
+                    'severity' => 2,
+                ]
+            ],
+            'objectionable_phrases' => [
+                [
+                    'quoted_objectionable_phrase' => 'you idiot',
+                    'explanation' => 'A put-down of a person.',
+                    'suggested_rewrite' => '',
+                    'category' => 'insult',
+                    'severity' => 3,
+                ]
+            ],
+            'negative_tone_phrases' => [
+                [
+                    'quoted_negative_tone_phrase' => 'Oh sure, <b>brilliant</b>',
+                    'explanation' => 'Sarcastic toward another commenter.',
+                    'suggested_rewrite' => '',
+                    'category' => 'dismissive_tone',
+                    'severity' => 1,
+                ]
+            ],
+            'appears_low_effort' => false,
+            'overall_score' => 2,
+            'toxicity_score' => 0.4,
+            'toxicity_explanation' => 'Contains an insult.',
+            'exceeds_tolerance' => true,
+            'tolerances' => [
+                'threat' => 'standard',
+                'identity_attack' => 'standard',
+                'sexual_content' => 'standard',
+                'harassment' => 'strict',
+                'insult' => 'strict',
+                'profanity' => 'relaxed',
+                'dismissive_tone' => 'standard',
+                'logical_fallacy' => 'standard',
+                'low_effort' => 'zero_tolerance',
+            ],
+        ], $overrides);
+    }
+
+    public function testEvaluateCommentParsesToleranceFields() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode($this->toleranceCommentScoreResponse()));
+
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+
+        $promise = $this->client->evaluateComment($this->testArticleId, 'This is a test comment');
+        $assertionCalled = false;
+
+        $promise->then(function ($commentScore) use (&$assertionCalled) {
+            $this->assertInstanceOf(CommentScore::class, $commentScore);
+            $this->assertTrue($commentScore->exceedsTolerance, 'exceeds_tolerance should be parsed');
+            $this->assertEqualsWithDelta(0.4, $commentScore->toxicityScore, 0.0001, 'toxicity_score is passed through unchanged');
+
+            $this->assertInstanceOf(ModerationTolerances::class, $commentScore->tolerances);
+            $this->assertSame('strict', $commentScore->tolerances->levelFor(ModerationCategory::INSULT));
+            $this->assertSame('relaxed', $commentScore->tolerances->levelFor(ModerationCategory::PROFANITY));
+            $this->assertSame('zero_tolerance', $commentScore->tolerances->levelFor(ModerationCategory::LOW_EFFORT));
+            $this->assertCount(9, $commentScore->tolerances->toArray());
+
+            $this->assertSame(2, $commentScore->logicalFallacies[0]->severity);
+            $this->assertSame('insult', $commentScore->objectionablePhrases[0]->category);
+            $this->assertSame(3, $commentScore->objectionablePhrases[0]->severity);
+            $this->assertSame('dismissive_tone', $commentScore->negativeTonePhrases[0]->category);
+            $this->assertSame(1, $commentScore->negativeTonePhrases[0]->severity);
+
+            // Existing sanitisation still applies to the quoted text alongside the new fields
+            $this->assertSame('So you &lt;want&gt; chaos?', $commentScore->logicalFallacies[0]->quotedLogicalFallacyExample);
+            $this->assertSame('Oh sure, &lt;b&gt;brilliant&lt;/b&gt;', $commentScore->negativeTonePhrases[0]->quotedNegativeTonePhrase);
+
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testEvaluateCommentSanitisesFindingCategory() {
+        $response = $this->toleranceCommentScoreResponse();
+        $response['objectionable_phrases'][0]['category'] = '<script>alert(1)</script>';
+
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode($response));
+
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+
+        $promise = $this->client->evaluateComment($this->testArticleId, 'This is a test comment');
+        $assertionCalled = false;
+
+        $promise->then(function ($commentScore) use (&$assertionCalled) {
+            $this->assertSame('&lt;script&gt;alert(1)&lt;/script&gt;', $commentScore->objectionablePhrases[0]->category, 'Unexpected category text must be HTML-escaped');
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testEvaluateCommentDefaultsWhenToleranceFieldsAbsent() {
+        // A response without the new fields (eg an older server) still parses
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'logical_fallacies' => [['fallacy_name' => 'Ad Hominem', 'quoted_logical_fallacy_example' => 'x', 'explanation' => 'y', 'suggested_rewrite' => '']],
+            'objectionable_phrases' => [['quoted_objectionable_phrase' => 'x', 'explanation' => 'y', 'suggested_rewrite' => '']],
+            'negative_tone_phrases' => [],
+            'appears_low_effort' => false,
+            'overall_score' => 3,
+            'toxicity_score' => 0.1,
+            'toxicity_explanation' => '',
+        ]));
+
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+
+        $promise = $this->client->evaluateComment($this->testArticleId, 'This is a test comment');
+        $assertionCalled = false;
+
+        $promise->then(function ($commentScore) use (&$assertionCalled) {
+            $this->assertFalse($commentScore->exceedsTolerance);
+            $this->assertTrue($commentScore->tolerances->isEmpty());
+            $this->assertSame('standard', $commentScore->tolerances->levelFor(ModerationCategory::THREAT));
+            $this->assertSame(0, $commentScore->logicalFallacies[0]->severity);
+            $this->assertSame('', $commentScore->objectionablePhrases[0]->category);
+            $this->assertSame(0, $commentScore->objectionablePhrases[0]->severity);
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testEvaluateCommentSendsOnlyNamedTolerancesAsJson() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode($this->toleranceCommentScoreResponse()));
+
+        $sentBody = null;
+        $this->browserMock->shouldReceive('post')
+            ->withArgs(function ($url, $headers, $body) use (&$sentBody) {
+                $sentBody = $body;
+                return strpos($url, '/commentscore') !== false
+                    && $headers['Content-Type'] === 'application/json';
+            })
+            ->andReturn(resolve($responseMock));
+
+        $tolerances = new ModerationTolerances([
+            ModerationCategory::INSULT => ToleranceLevel::STRICT,
+            ModerationCategory::PROFANITY => ToleranceLevel::RELAXED,
+        ]);
+        $promise = $this->client->evaluateComment($this->testArticleId, 'This is a test comment', null, $tolerances);
+        $assertionCalled = false;
+
+        $promise->then(function ($commentScore) use (&$assertionCalled) {
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+        $decoded = json_decode($sentBody, true);
+        $this->assertSame(
+            ['insult' => 'strict', 'profanity' => 'relaxed'],
+            $decoded['tolerances'],
+            'Only named categories should be sent, as a nested JSON object'
+        );
+        $this->assertSame($this->testArticleId, $decoded['article_context_id']);
+        $this->assertSame('This is a test comment', $decoded['comment']);
+    }
+
+    public function testEvaluateCommentOmitsTolerancesWhenNotGiven() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode($this->toleranceCommentScoreResponse()));
+
+        $sentBodies = [];
+        $this->browserMock->shouldReceive('post')
+            ->andReturnUsing(function ($url, $headers, $body) use (&$sentBodies, $responseMock) {
+                $sentBodies[] = json_decode($body, true);
+                return resolve($responseMock);
+            });
+
+        // No tolerances, then explicitly empty tolerances: neither should send the field
+        $this->client->evaluateComment($this->testArticleId, 'This is a test comment');
+        $this->client->evaluateComment($this->testArticleId, 'This is a test comment', null, new ModerationTolerances());
+        $this->client->run();
+
+        $this->assertCount(2, $sentBodies);
+        $this->assertArrayNotHasKey('tolerances', $sentBodies[0], 'No tolerances given means the field is not sent');
+        $this->assertArrayNotHasKey('tolerances', $sentBodies[1], 'Empty tolerances are not sent (they would encode as [] not {})');
+    }
+
+    public function testRelaxedFlooredToleranceIsRejectedBeforeSending() {
+        // The client must reject this itself; the request must never be made
+        $this->browserMock->shouldNotReceive('post');
+
+        $this->expectException(BadRequestException::class);
+        $this->expectExceptionMessage('can be made stricter but not relaxed');
+
+        $this->client->evaluateComment(
+            $this->testArticleId,
+            'This is a test comment',
+            null,
+            new ModerationTolerances([ModerationCategory::IDENTITY_ATTACK => ToleranceLevel::RELAXED])
+        );
+    }
+
+    public function testServerFloorRejectionMapsToBadRequest() {
+        // If the server rejects tolerances (eg the 400 for relaxing a floored category), it surfaces as a BadRequestException
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(400);
+        $responseMock->shouldReceive('getReasonPhrase')->andReturn('Bad Request');
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'error' => 'Bad Request',
+            'message' => 'These categories can be made stricter but not relaxed: threat',
+            'code' => 400,
+        ]));
+
+        $responseException = new \React\Http\Message\ResponseException($responseMock);
+        $this->browserMock->shouldReceive('post')->andReturn(\React\Promise\reject($responseException));
+
+        $promise = $this->client->evaluateComment($this->testArticleId, 'This is a test comment');
+        $caughtException = null;
+
+        $promise->then(
+            function ($result) { $this->fail('Expected BadRequestException not thrown'); },
+            function ($e) use (&$caughtException) { $caughtException = $e; }
+        );
+
+        $this->client->run();
+
+        $this->assertInstanceOf(BadRequestException::class, $caughtException);
+        $this->assertStringContainsString('can be made stricter but not relaxed', $caughtException->getMessage());
+        $this->assertEquals(400, $caughtException->getStatusCode());
+    }
+
+    public function testMegacallSendsTolerancesWithCommentScore() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'comment_score' => $this->toleranceCommentScoreResponse(['exceeds_tolerance' => false]),
+        ]));
+
+        $sentBody = null;
+        $this->browserMock->shouldReceive('post')
+            ->withArgs(function ($url, $headers, $body) use (&$sentBody) {
+                $sentBody = $body;
+                return strpos($url, '/megacall') !== false;
+            })
+            ->andReturn(resolve($responseMock));
+
+        $promise = $this->client->megacall(
+            'This is a test megacall comment',
+            $this->testArticleId,
+            ['commentscore'],
+            null,
+            null,
+            null,
+            null,
+            new ModerationTolerances([ModerationCategory::THREAT => ToleranceLevel::ZERO_TOLERANCE])
+        );
+        $assertionCalled = false;
+
+        $promise->then(function ($result) use (&$assertionCalled) {
+            $this->assertInstanceOf(MegaCallResult::class, $result);
+            $this->assertInstanceOf(CommentScore::class, $result->commentScore);
+            $this->assertFalse($result->commentScore->exceedsTolerance);
+            $this->assertSame('insult', $result->commentScore->objectionablePhrases[0]->category);
+            $this->assertSame('strict', $result->commentScore->tolerances->levelFor(ModerationCategory::HARASSMENT));
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+        $decoded = json_decode($sentBody, true);
+        $this->assertSame(['threat' => 'zero_tolerance'], $decoded['tolerances']);
+        $this->assertTrue($decoded['run_comment_score']);
+    }
+
+    public function testMegacallOmitsTolerancesWithoutCommentScore() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'spam_check' => ['reasoning' => 'Fine.', 'confidence' => 0.9, 'is_spam' => false],
+        ]));
+
+        $sentBody = null;
+        $this->browserMock->shouldReceive('post')
+            ->withArgs(function ($url, $headers, $body) use (&$sentBody) {
+                $sentBody = $body;
+                return strpos($url, '/megacall') !== false;
+            })
+            ->andReturn(resolve($responseMock));
+
+        $promise = $this->client->megacall(
+            'This is a test megacall comment',
+            null,
+            ['spam'],
+            null,
+            null,
+            null,
+            null,
+            new ModerationTolerances([ModerationCategory::INSULT => ToleranceLevel::STRICT])
+        );
+        $assertionCalled = false;
+
+        $promise->then(function ($result) use (&$assertionCalled) {
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+        $this->assertArrayNotHasKey('tolerances', json_decode($sentBody, true), 'Tolerances only apply to the comment score');
     }
 }

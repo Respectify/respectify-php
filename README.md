@@ -24,6 +24,43 @@ $client->perspective()->analyzeComment([
 $client->run();
 ```
 
+### Moderation tolerances
+
+Each API key has a saved tolerance for nine categories of problem (`threat`, `identity_attack`, `sexual_content`,
+`harassment`, `insult`, `profanity`, `dismissive_tone`, `logical_fallacy`, `low_effort`), each one of `relaxed`,
+`standard` (the default), `strict` or `zero_tolerance`. You can override them for a single call by passing a
+`ModerationTolerances` as the last argument of `evaluateComment()` or `megacall()`. Only the categories you name are
+overridden; the rest keep their saved level.
+
+`threat`, `identity_attack`, `sexual_content` and `harassment` are floored: they can be made stricter but never
+`relaxed`. `ModerationTolerances` rejects that (and any unknown category or level) with a `BadRequestException` when it
+is constructed, so an invalid request is never sent.
+
+Use `CommentScore::$exceedsTolerance` to decide whether to act on a comment. `toxicityScore` is not adjusted for
+tolerances. Each objectionable or negative tone phrase also has a `category` and a `severity` (1 minor, 2 clear,
+3 severe), and each logical fallacy has a `severity`.
+
+```php
+use Respectify\Moderation\ModerationCategory;
+use Respectify\Moderation\ModerationTolerances;
+use Respectify\Moderation\ToleranceLevel;
+
+$tolerances = new ModerationTolerances([
+    ModerationCategory::PROFANITY => ToleranceLevel::RELAXED,
+    ModerationCategory::THREAT => ToleranceLevel::ZERO_TOLERANCE,
+]);
+
+$client->evaluateComment($articleId, $comment, null, $tolerances)->then(function ($score) {
+    if ($score->exceedsTolerance) {
+        foreach ($score->objectionablePhrases as $phrase) {
+            echo $phrase->category . ' (severity ' . $phrase->severity . '): ' . $phrase->quotedObjectionablePhrase . "\n";
+        }
+    }
+});
+
+$client->run();
+```
+
 ## Developing
 
 To be able to make changes:

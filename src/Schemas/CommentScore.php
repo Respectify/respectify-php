@@ -19,8 +19,13 @@
 
 namespace Respectify\Schemas;
 
+use Respectify\Moderation\ModerationTolerances;
+
 /**
- * Represents the comprehensive evaluation of a comment's quality and toxicity.
+ * Represents the comprehensive evaluation of a comment's quality and toxicity, under the site's tolerances.
+ *
+ * Findings below the site's tolerance have already been removed. Use `$exceedsTolerance`, rather than
+ * `$toxicityScore` alone, to decide whether to act on a comment.
  */
 class CommentScore {
 
@@ -62,6 +67,19 @@ class CommentScore {
     public string $toxicityExplanation;
 
     /**
+     * True when the comment has a problem the site's tolerances do not accept. This is what integrations
+     * should act on (eg, to coach the commenter). Note `$toxicityScore` is not adjusted for tolerances.
+     * False if the server did not supply it.
+     */
+    public bool $exceedsTolerance;
+
+    /**
+     * The tolerances this score was judged under: the API key's saved tolerances with any per-call
+     * overrides applied. Categories the server did not report read as `standard`.
+     */
+    public ModerationTolerances $tolerances;
+
+    /**
      * CommentScore constructor.
      * @param array $data The JSON data from the API
      */
@@ -73,5 +91,7 @@ class CommentScore {
         $this->overallScore = $data['overall_score'] ?? 0;
         $this->toxicityScore = floatval($data['toxicity_score'] ?? 0.0);
         $this->toxicityExplanation = $data['toxicity_explanation'] ?? '';
+        $this->exceedsTolerance = $data['exceeds_tolerance'] ?? false;
+        $this->tolerances = ModerationTolerances::fromApiResponse(is_array($data['tolerances'] ?? null) ? $data['tolerances'] : []);
     }
 }
