@@ -3,6 +3,7 @@
 namespace Tests;
 
 use PHPUnit\Framework\TestCase;
+use Respectify\Moderation\HealthItem;
 use Respectify\Moderation\ModerationCategory;
 use Respectify\Moderation\ModerationTolerances;
 use Respectify\Moderation\ToleranceLevel;
@@ -20,8 +21,8 @@ class ModerationTolerancesTest extends TestCase {
 
         $this->assertTrue($tolerances->isEmpty(), 'No category was named, so there is nothing to send');
         $this->assertSame([], $tolerances->toArray(), 'Nothing named means nothing is sent');
-        foreach (ModerationCategory::ALL as $category) {
-            $this->assertSame(ToleranceLevel::STANDARD, $tolerances->levelFor($category), "Unnamed $category should read as standard");
+        foreach (HealthItem::ALL as $item) {
+            $this->assertSame(ToleranceLevel::STANDARD, $tolerances->levelFor($item), "Unnamed $item should read as standard");
         }
     }
 
@@ -35,7 +36,7 @@ class ModerationTolerancesTest extends TestCase {
         $this->assertSame(
             ['threat' => 'zero_tolerance', 'profanity' => 'relaxed'],
             $tolerances->toArray(),
-            'Only the named categories should be sent, so the rest keep the API key\'s saved level'
+            'Only the named items should be sent; the server reads the rest as standard'
         );
     }
 
@@ -44,28 +45,64 @@ class ModerationTolerancesTest extends TestCase {
 
         $allLevels = $tolerances->allLevels();
 
-        $this->assertCount(9, $allLevels, 'All nine categories should be present');
+        $this->assertCount(10, $allLevels, 'All ten comment-health items (nine categories and quality) should be present');
         $this->assertSame('strict', $allLevels['insult']);
         $this->assertSame('standard', $allLevels['low_effort']);
+        $this->assertSame('standard', $allLevels['quality']);
     }
 
-    public function testEveryCategoryAcceptsEveryNonRelaxedLevel() {
-        foreach (ModerationCategory::ALL as $category) {
+    public function testHealthItemsAreTheNineCategoriesAndQuality() {
+        $this->assertSame(array_merge(ModerationCategory::ALL, ['quality']), HealthItem::ALL,
+            'The health items must match the API: the nine categories in order, then quality');
+        $this->assertSame('quality', HealthItem::QUALITY);
+        $this->assertFalse(ModerationCategory::isValid(HealthItem::QUALITY), 'Quality is a health item, not a problem category');
+        $this->assertFalse(HealthItem::isFloored(HealthItem::QUALITY), 'Quality is not floored');
+        $this->assertTrue(HealthItem::isValid(HealthItem::QUALITY));
+        $this->assertFalse(HealthItem::isValid('spam'), 'Spam is a separate check, not a health item');
+    }
+
+    public function testAllowedLevelsLimitFlooredCategories() {
+        foreach (ModerationCategory::FLOORED as $category) {
+            $this->assertSame(['standard', 'strict', 'zero_tolerance'], HealthItem::allowedLevels($category),
+                "$category can only be standard or stricter");
+        }
+        $this->assertSame(ToleranceLevel::ALL, HealthItem::allowedLevels(HealthItem::QUALITY), 'Quality accepts every level');
+        $this->assertSame(ToleranceLevel::ALL, HealthItem::allowedLevels(ModerationCategory::PROFANITY));
+    }
+
+    public function testLevelsIncludeOff() {
+        $this->assertSame(['off', 'relaxed', 'standard', 'strict', 'zero_tolerance'], ToleranceLevel::ALL,
+            'The five levels, from most to least accepting');
+        $this->assertTrue(ToleranceLevel::isValid(ToleranceLevel::OFF));
+    }
+
+    public function testEveryItemAcceptsStandardAndStricterLevels() {
+        foreach (HealthItem::ALL as $item) {
             foreach ([ToleranceLevel::STANDARD, ToleranceLevel::STRICT, ToleranceLevel::ZERO_TOLERANCE] as $level) {
-                $tolerances = new ModerationTolerances([$category => $level]);
-                $this->assertSame($level, $tolerances->levelFor($category), "$category should accept $level");
+                $tolerances = new ModerationTolerances([$item => $level]);
+                $this->assertSame($level, $tolerances->levelFor($item), "$item should accept $level");
             }
         }
     }
 
-    public function testNonFlooredCategoriesAcceptRelaxed() {
-        $nonFloored = array_diff(ModerationCategory::ALL, ModerationCategory::FLOORED);
-        $this->assertCount(5, $nonFloored, 'insult, profanity, dismissive_tone, logical_fallacy and low_effort are not floored');
+    public function testNonFlooredItemsAcceptRelaxedAndOff() {
+        $nonFloored = array_values(array_diff(HealthItem::ALL, ModerationCategory::FLOORED));
+        $this->assertSame(['insult', 'profanity', 'dismissive_tone', 'logical_fallacy', 'low_effort', 'quality'], $nonFloored,
+            'Five categories and quality are not floored');
 
-        foreach ($nonFloored as $category) {
-            $tolerances = new ModerationTolerances([$category => ToleranceLevel::RELAXED]);
-            $this->assertSame(ToleranceLevel::RELAXED, $tolerances->levelFor($category), "$category should accept relaxed");
+        foreach ($nonFloored as $item) {
+            foreach ([ToleranceLevel::RELAXED, ToleranceLevel::OFF] as $level) {
+                $tolerances = new ModerationTolerances([$item => $level]);
+                $this->assertSame($level, $tolerances->levelFor($item), "$item should accept $level");
+            }
         }
+    }
+
+    public function testQualityLevelIsSent() {
+        $tolerances = new ModerationTolerances([HealthItem::QUALITY => ToleranceLevel::STRICT, ModerationCategory::INSULT => ToleranceLevel::OFF]);
+
+        $this->assertSame(['insult' => 'off', 'quality' => 'strict'], $tolerances->toArray(),
+            'Quality and off are sent like any other item, in the documented order');
     }
 
     public function testEachFlooredCategoryRejectsRelaxed() {
@@ -81,7 +118,7 @@ class ModerationTolerancesTest extends TestCase {
                 new ModerationTolerances([$category => ToleranceLevel::RELAXED]);
                 $this->fail("Relaxed $category should have been rejected");
             } catch (BadRequestException $e) {
-                $this->assertStringContainsString('can be made stricter but not relaxed', $e->getMessage());
+                $this->assertStringContainsString('can be made stricter but not relaxed or turned off', $e->getMessage());
                 $this->assertStringContainsString($category, $e->getMessage());
                 $rejectedCount++;
             }
@@ -89,17 +126,32 @@ class ModerationTolerancesTest extends TestCase {
         $this->assertSame(4, $rejectedCount, 'All four floored categories should reject relaxed');
     }
 
+    public function testEachFlooredCategoryRejectsOff() {
+        $rejectedCount = 0;
+        foreach (ModerationCategory::FLOORED as $category) {
+            try {
+                new ModerationTolerances([$category => ToleranceLevel::OFF]);
+                $this->fail("Turning off $category should have been rejected");
+            } catch (BadRequestException $e) {
+                $this->assertSame("These categories can be made stricter but not relaxed or turned off: $category", $e->getMessage());
+                $rejectedCount++;
+            }
+        }
+        $this->assertSame(4, $rejectedCount, 'All four floored categories should reject off');
+    }
+
     public function testRelaxedFloorsAreAllNamedInOneError() {
         try {
             new ModerationTolerances([
                 ModerationCategory::THREAT => ToleranceLevel::RELAXED,
-                ModerationCategory::HARASSMENT => ToleranceLevel::RELAXED,
+                ModerationCategory::HARASSMENT => ToleranceLevel::OFF,
                 ModerationCategory::INSULT => ToleranceLevel::RELAXED,
+                HealthItem::QUALITY => ToleranceLevel::OFF,
             ]);
-            $this->fail('Relaxed floored categories should have been rejected');
+            $this->fail('Relaxed or off floored categories should have been rejected');
         } catch (BadRequestException $e) {
             $this->assertSame(
-                'These categories can be made stricter but not relaxed: harassment, threat',
+                'These categories can be made stricter but not relaxed or turned off: harassment, threat',
                 $e->getMessage(),
                 'The message should match the server\'s, listing every relaxed floor in sorted order'
             );
@@ -174,13 +226,16 @@ class ModerationTolerancesTest extends TestCase {
             'profanity' => 'relaxed',
             'dismissive_tone' => 'standard',
             'logical_fallacy' => 'strict',
-            'low_effort' => 'standard',
+            'low_effort' => 'off',
+            'quality' => 'strict',
         ]);
 
-        $this->assertCount(9, $tolerances->toArray(), 'All nine categories from the response should be kept');
+        $this->assertCount(10, $tolerances->toArray(), 'All ten items from the response should be kept');
         $this->assertSame('zero_tolerance', $tolerances->levelFor('threat'));
         $this->assertSame('relaxed', $tolerances->levelFor('insult'));
         $this->assertSame('strict', $tolerances->levelFor('logical_fallacy'));
+        $this->assertSame('off', $tolerances->levelFor('low_effort'));
+        $this->assertSame('strict', $tolerances->levelFor(HealthItem::QUALITY));
     }
 
     public function testFromApiResponseIgnoresUnknownAndInvalidEntries() {
@@ -190,11 +245,13 @@ class ModerationTolerancesTest extends TestCase {
             'insult' => 'future_level',
             'profanity' => ['strict'],
             'threat' => 'relaxed',
+            'harassment' => 'off',
             'low_effort' => 'strict',
         ]);
 
         $this->assertSame(['low_effort' => 'strict'], $tolerances->toArray(), 'Only known, valid entries should be kept');
         $this->assertSame('standard', $tolerances->levelFor('insult'));
         $this->assertSame('standard', $tolerances->levelFor('threat'));
+        $this->assertSame('standard', $tolerances->levelFor('harassment'), 'A floored category reported as off is invalid, so reads as standard');
     }
 }

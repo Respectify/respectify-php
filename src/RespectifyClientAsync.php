@@ -32,6 +32,7 @@ use Respectify\Schemas\MegaCallResult;
 use Respectify\Schemas\LlmDetectionResult;
 use Respectify\Schemas\InitTopicResponse;
 use Respectify\Schemas\UserCheckResponse;
+use Respectify\Moderation\CommentHealthResponse;
 use Respectify\Moderation\ModerationTolerances;
 
 // INLINE SCHEMA CLASSES REMOVED - NOW USING AUTO-GENERATED ONES FROM src/Schemas/
@@ -421,14 +422,17 @@ class RespectifyClientAsync {
      * See the [Quick Start](/docs/PHP/SampleCode) for code samples showing how to use this.
      *
      * Use the returned `CommentScore::$exceedsTolerance` to decide whether to act on the comment: it is true when
-     * the comment has a problem the site's tolerances do not accept. `CommentScore::$toxicityScore` is not adjusted
-     * for tolerances.
+     * any comment-health item scores below what the site's tolerances accept, or the comment is severely toxic.
+     * `CommentScore::$healthItems` has each item's score, minimum and verdict, and `CommentScore::$overallScore` is
+     * the comment's health (1-5). `CommentScore::$toxicityScore` is not adjusted for tolerances.
      *
-     * Example, relaxing profanity and tightening insults for this call only:
+     * Tolerances are not saved on the API key: send the site's levels on every call. Items not named are `standard`.
+     *
+     * Example, relaxing profanity, turning logical fallacies off and asking for higher quality:
      * ```php
      * use Respectify\Moderation\ModerationTolerances;
      *
-     * $tolerances = new ModerationTolerances(['profanity' => 'relaxed', 'insult' => 'strict']);
+     * $tolerances = new ModerationTolerances(['profanity' => 'relaxed', 'logical_fallacy' => 'off', 'quality' => 'strict']);
      * $client->evaluateComment($articleId, $comment, null, $tolerances)->then(function ($score) {
      *     if ($score->exceedsTolerance) {
      *         // Show the findings to the commenter
@@ -440,7 +444,7 @@ class RespectifyClientAsync {
      * @param string $articleContextId a string containing UUID that identifies the article/blog/etc that this comment was written in the context of. This is the value you get by calling `initTopicFromText` or `initTopicFromUrl`.
      * @param string $comment The comment text: this is what is evaluated.
      * @param string|null $replyToComment Provides additional context: the comment to which the one being evaluated is a reply. This is optional.
-     * @param ModerationTolerances|null $tolerances Optional. Tolerances for this call only. The categories it names override the API key's saved tolerances; the rest keep their saved level. Invalid tolerances (eg `relaxed` on a floored category) are rejected when the `ModerationTolerances` is constructed, so they are never sent.
+     * @param ModerationTolerances|null $tolerances Optional. The site's level for each comment-health item (the nine categories and `quality`); items not named are `standard`. Invalid tolerances (eg `relaxed` or `off` on a floored category) are rejected when the `ModerationTolerances` is constructed, so they are never sent.
      * @return PromiseInterface<CommentScore> A [promise](https://reactphp.org/promise/#promiseinterface) that resolves to a [CommentScore](CommentScore) object.
      * @throws RespectifyException
      * @throws JsonDecodingException
@@ -460,8 +464,8 @@ class RespectifyClientAsync {
             $data['reply_to_comment'] = $replyToComment;
         }
 
-        // Only send tolerances that were named, so unnamed categories keep the API key's saved level.
-        // An empty override is skipped: json_encode would send it as [] rather than {}.
+        // Only the named items are sent; the server reads the rest as standard.
+        // Empty tolerances are skipped: json_encode would send them as [] rather than {}.
         if ($tolerances !== null && !$tolerances->isEmpty()) {
             $data['tolerances'] = $tolerances->toArray();
         }
@@ -483,7 +487,7 @@ class RespectifyClientAsync {
                     // Sanitize the entire response data
                     $responseData = $this->sanitiseReturnedData($responseData);
 
-                    return new CommentScore($responseData);
+                    return new CommentScore(CommentHealthResponse::normalise($responseData));
                 } catch (\Throwable $e) {
                     throw $this->unexpectedResponseStructure($e, $response);
                 }
@@ -748,7 +752,7 @@ class RespectifyClientAsync {
      * @param string|null $replyToComment Optional. The comment to which the evaluated comment is replying, used when 'commentscore' is included
      * @param array|null $sensitiveTopics Optional. List of sensitive topics to watch for when 'dogwhistle' is included
      * @param array|null $dogwhistleExamples Optional. List of dogwhistle examples to look for when 'dogwhistle' is included
-     * @param ModerationTolerances|null $tolerances Optional. Tolerances for the comment score, used when 'commentscore' is included. The categories it names override the API key's saved tolerances for this call only. See `evaluateComment()`.
+     * @param ModerationTolerances|null $tolerances Optional. The site's comment-health levels for the comment score, used when 'commentscore' is included; items not named are `standard`. See `evaluateComment()`.
      * @return PromiseInterface<MegaCallResult> A promise that resolves to a MegaCallResult object containing the requested evaluations
      * @throws BadRequestException
      * @throws RespectifyException
@@ -809,7 +813,7 @@ class RespectifyClientAsync {
             $data['dogwhistle_examples'] = $dogwhistleExamples;
         }
 
-        // Tolerances only affect the comment score. As in evaluateComment, only named categories are sent.
+        // Tolerances only affect the comment score. As in evaluateComment, only named items are sent.
         if ($includeCommentScore && $tolerances !== null && !$tolerances->isEmpty()) {
             $data['tolerances'] = $tolerances->toArray();
         }
@@ -824,7 +828,10 @@ class RespectifyClientAsync {
                     $responseData = $this->decodeJsonObject($response);
                     
                     $responseData = $this->sanitiseReturnedData($responseData);
-                    
+                    if (isset($responseData['comment_score']) && is_array($responseData['comment_score'])) {
+                        $responseData['comment_score'] = CommentHealthResponse::normalise($responseData['comment_score']);
+                    }
+
                     return new MegaCallResult($responseData);
                 } catch (\Throwable $e) {
                     throw $this->unexpectedResponseStructure($e, $response);

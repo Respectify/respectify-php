@@ -24,36 +24,63 @@ $client->perspective()->analyzeComment([
 $client->run();
 ```
 
-### Moderation tolerances
+### Comment health and moderation tolerances
 
-Each API key has a saved tolerance for nine categories of problem (`threat`, `identity_attack`, `sexual_content`,
-`harassment`, `insult`, `profanity`, `dismissive_tone`, `logical_fallacy`, `low_effort`), each one of `relaxed`,
-`standard` (the default), `strict` or `zero_tolerance`. You can override them for a single call by passing a
-`ModerationTolerances` as the last argument of `evaluateComment()` or `megacall()`. Only the categories you name are
-overridden; the rest keep their saved level.
+Comment health is made of ten items: nine categories of problem (`threat`, `identity_attack`, `sexual_content`,
+`harassment`, `insult`, `profanity`, `dismissive_tone`, `logical_fallacy`, `low_effort`) and `quality`. Each item has a
+level: `off`, `relaxed`, `standard` (the default), `strict` or `zero_tolerance`. Nothing is saved on the API key: pass a
+`ModerationTolerances` as the last argument of `evaluateComment()` or `megacall()` on every call. Items you do not name
+are `standard`; only the items you name are sent.
+
+Each item that is not `off` gets a score from 1 to 5. For a problem category, 5 means nothing was found; otherwise it
+is the worst finding (minor 4, clear 2, severe 1). For `quality`, it is the quality score. Each level sets the lowest
+score accepted:
+
+| Level | Problem category | Quality |
+|---|---|---|
+| `off` | not scored, not coached, not counted | not scored |
+| `relaxed` | 2 (minor and clear findings accepted) | 2 |
+| `standard` | 4 (minor findings accepted) | 3 |
+| `strict` | 5 (no findings accepted) | 4 |
+| `zero_tolerance` | 5 (no findings accepted, and any hint gets a full assessment) | 5 |
 
 `threat`, `identity_attack`, `sexual_content` and `harassment` are floored: they can be made stricter but never
-`relaxed`. `ModerationTolerances` rejects that (and any unknown category or level) with a `BadRequestException` when it
-is constructed, so an invalid request is never sent.
+`relaxed` or `off`, and accept no finding at any level. `ModerationTolerances` rejects a floor violation (and any unknown
+item or level) with a `BadRequestException` when it is constructed, so an invalid request is never sent.
+`HealthItem::allowedLevels()` lists the levels an item accepts, for building a settings UI.
 
-Use `CommentScore::$exceedsTolerance` to decide whether to act on a comment. `toxicityScore` is not adjusted for
-tolerances. Each objectionable or negative tone phrase also has a `category` and a `severity` (1 minor, 2 clear,
-3 severe), and each logical fallacy has a `severity`.
+Use `CommentScore::$exceedsTolerance` to decide whether to act on a comment: it is true when any item scores below its
+minimum, or the comment is severely toxic. The response also has:
+
+- `healthItems`: each item that is not off, by name, as a `HealthItemScore` with `score`, `minimum` and `isAcceptable`.
+  The raw quality score is `$score->healthItems['quality']->score`.
+- `healthScore`: comment health, 1.0 to 5.0 (the geometric mean of the quality score and the worst problem item's
+  score). `null` when every item is off.
+- `overallScore`: comment health rounded to an integer, 1 to 5.
+
+Older servers send neither `healthItems` nor `healthScore`; they read as `[]` and `null`. Findings an item accepts are
+removed from the response. `toxicityScore` is not adjusted for tolerances. Each objectionable or negative tone phrase
+also has a `category` and a `severity` (1 minor, 2 clear, 3 severe), and each logical fallacy has a `severity`.
 
 ```php
+use Respectify\Moderation\HealthItem;
 use Respectify\Moderation\ModerationCategory;
 use Respectify\Moderation\ModerationTolerances;
 use Respectify\Moderation\ToleranceLevel;
 
 $tolerances = new ModerationTolerances([
     ModerationCategory::PROFANITY => ToleranceLevel::RELAXED,
+    ModerationCategory::LOGICAL_FALLACY => ToleranceLevel::OFF,
     ModerationCategory::THREAT => ToleranceLevel::ZERO_TOLERANCE,
+    HealthItem::QUALITY => ToleranceLevel::STRICT,
 ]);
 
 $client->evaluateComment($articleId, $comment, null, $tolerances)->then(function ($score) {
     if ($score->exceedsTolerance) {
-        foreach ($score->objectionablePhrases as $phrase) {
-            echo $phrase->category . ' (severity ' . $phrase->severity . '): ' . $phrase->quotedObjectionablePhrase . "\n";
+        foreach ($score->healthItems as $item => $result) {
+            if (!$result->isAcceptable) {
+                echo $item . ': ' . $result->score . ' (needs ' . $result->minimum . ")\n";
+            }
         }
     }
 });

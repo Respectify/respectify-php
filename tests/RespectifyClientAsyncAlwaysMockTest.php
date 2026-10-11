@@ -6,10 +6,12 @@ use PHPUnit\Framework\TestCase;
 use Mockery as m;
 use Respectify\RespectifyClientAsync;
 use Respectify\Schemas\CommentScore;
+use Respectify\Schemas\HealthItemScore;
 use Respectify\Schemas\SpamDetectionResult;
 use Respectify\Schemas\CommentRelevanceResult;
 use Respectify\Schemas\MegaCallResult;
 use Respectify\Schemas\PerspectiveAnalyzeCommentResponse;
+use Respectify\Moderation\HealthItem;
 use Respectify\Moderation\ModerationCategory;
 use Respectify\Moderation\ModerationTolerances;
 use Respectify\Moderation\ToleranceLevel;
@@ -867,7 +869,7 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
     }
 
     /**
-     * A comment score response carrying the moderation tolerance fields, as the API returns them.
+     * A comment score response carrying the moderation tolerance and comment health fields, as the API returns them.
      * @param array<string, mixed> $overrides Top-level fields to replace.
      * @return array<string, mixed>
      */
@@ -915,6 +917,20 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
                 'dismissive_tone' => 'standard',
                 'logical_fallacy' => 'standard',
                 'low_effort' => 'zero_tolerance',
+                'quality' => 'strict',
+            ],
+            'health_score' => 1.414,
+            'health_items' => [
+                'threat' => ['score' => 5, 'minimum' => 5, 'is_acceptable' => true],
+                'identity_attack' => ['score' => 5, 'minimum' => 5, 'is_acceptable' => true],
+                'sexual_content' => ['score' => 5, 'minimum' => 5, 'is_acceptable' => true],
+                'harassment' => ['score' => 5, 'minimum' => 5, 'is_acceptable' => true],
+                'insult' => ['score' => 1, 'minimum' => 5, 'is_acceptable' => false],
+                'profanity' => ['score' => 5, 'minimum' => 2, 'is_acceptable' => true],
+                'dismissive_tone' => ['score' => 4, 'minimum' => 4, 'is_acceptable' => true],
+                'logical_fallacy' => ['score' => 2, 'minimum' => 4, 'is_acceptable' => false],
+                'low_effort' => ['score' => 5, 'minimum' => 5, 'is_acceptable' => true],
+                'quality' => ['score' => 2, 'minimum' => 4, 'is_acceptable' => false],
             ],
         ], $overrides);
     }
@@ -938,7 +954,8 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
             $this->assertSame('strict', $commentScore->tolerances->levelFor(ModerationCategory::INSULT));
             $this->assertSame('relaxed', $commentScore->tolerances->levelFor(ModerationCategory::PROFANITY));
             $this->assertSame('zero_tolerance', $commentScore->tolerances->levelFor(ModerationCategory::LOW_EFFORT));
-            $this->assertCount(9, $commentScore->tolerances->toArray());
+            $this->assertSame('strict', $commentScore->tolerances->levelFor(HealthItem::QUALITY));
+            $this->assertCount(10, $commentScore->tolerances->toArray());
 
             $this->assertSame(2, $commentScore->logicalFallacies[0]->severity);
             $this->assertSame('insult', $commentScore->objectionablePhrases[0]->category);
@@ -1004,6 +1021,8 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
             $this->assertFalse($commentScore->exceedsTolerance);
             $this->assertTrue($commentScore->tolerances->isEmpty());
             $this->assertSame('standard', $commentScore->tolerances->levelFor(ModerationCategory::THREAT));
+            $this->assertSame([], $commentScore->healthItems, 'An older server sends no health items');
+            $this->assertNull($commentScore->healthScore, 'An older server sends no health score');
             $this->assertSame(0, $commentScore->logicalFallacies[0]->severity);
             $this->assertSame('', $commentScore->objectionablePhrases[0]->category);
             $this->assertSame(0, $commentScore->objectionablePhrases[0]->severity);
@@ -1013,6 +1032,140 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
         $this->client->run();
 
         $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testEvaluateCommentParsesCommentHealthFields() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode($this->toleranceCommentScoreResponse()));
+
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+
+        $promise = $this->client->evaluateComment($this->testArticleId, 'This is a test comment');
+        $assertionCalled = false;
+
+        $promise->then(function ($commentScore) use (&$assertionCalled) {
+            $this->assertEqualsWithDelta(1.414, $commentScore->healthScore, 0.0001, 'health_score should be parsed');
+            $this->assertSame(2, $commentScore->overallScore, 'overall_score is the rounded comment health');
+            $this->assertSame(HealthItem::ALL, array_keys($commentScore->healthItems), 'Every item not turned off is reported');
+
+            $quality = $commentScore->healthItems[HealthItem::QUALITY];
+            $this->assertInstanceOf(HealthItemScore::class, $quality);
+            $this->assertSame(2, $quality->score, 'The raw quality score is the quality item');
+            $this->assertSame(4, $quality->minimum);
+            $this->assertFalse($quality->isAcceptable);
+
+            $insult = $commentScore->healthItems[ModerationCategory::INSULT];
+            $this->assertSame(1, $insult->score);
+            $this->assertSame(5, $insult->minimum);
+            $this->assertFalse($insult->isAcceptable);
+            $this->assertTrue($commentScore->healthItems[ModerationCategory::DISMISSIVE_TONE]->isAcceptable);
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testHealthScoreIsNullWhenEveryItemIsOff() {
+        // The server omits health_score (it is not null in the JSON) and health_items is empty when every item is off
+        $response = $this->toleranceCommentScoreResponse(['health_items' => [], 'exceeds_tolerance' => false]);
+        unset($response['health_score']);
+
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode($response));
+
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+
+        $promise = $this->client->evaluateComment($this->testArticleId, 'This is a test comment');
+        $assertionCalled = false;
+
+        $promise->then(function ($commentScore) use (&$assertionCalled) {
+            $this->assertNull($commentScore->healthScore);
+            $this->assertSame([], $commentScore->healthItems);
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testUnknownAndMalformedHealthItemsAreDropped() {
+        // Item names become array keys that integrations display, so only known items are kept, and malformed
+        // entries (which would otherwise be a TypeError) are dropped rather than breaking the whole response
+        $response = $this->toleranceCommentScoreResponse([
+            'health_score' => 'not a number',
+            'health_items' => [
+                '<script>alert(1)</script>' => ['score' => 1, 'minimum' => 5, 'is_acceptable' => false],
+                'insult' => 'not an object',
+                'profanity' => ['score' => 'high', 'minimum' => 2, 'is_acceptable' => true],
+                'quality' => ['score' => 4, 'minimum' => 3, 'is_acceptable' => true],
+            ],
+        ]);
+
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode($response));
+
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+
+        $promise = $this->client->evaluateComment($this->testArticleId, 'This is a test comment');
+        $assertionCalled = false;
+
+        $promise->then(function ($commentScore) use (&$assertionCalled) {
+            $this->assertSame(['quality'], array_keys($commentScore->healthItems), 'Only the known, well-formed item is kept');
+            $this->assertSame(4, $commentScore->healthItems['quality']->score);
+            $this->assertNull($commentScore->healthScore, 'A non-numeric health_score is treated as absent');
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testEvaluateCommentSendsQualityAndOffLevels() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode($this->toleranceCommentScoreResponse()));
+
+        $sentBody = null;
+        $this->browserMock->shouldReceive('post')
+            ->withArgs(function ($url, $headers, $body) use (&$sentBody) {
+                $sentBody = $body;
+                return strpos($url, '/commentscore') !== false;
+            })
+            ->andReturn(resolve($responseMock));
+
+        $tolerances = new ModerationTolerances([
+            HealthItem::QUALITY => ToleranceLevel::ZERO_TOLERANCE,
+            ModerationCategory::LOGICAL_FALLACY => ToleranceLevel::OFF,
+        ]);
+        $this->client->evaluateComment($this->testArticleId, 'This is a test comment', null, $tolerances);
+        $this->client->run();
+
+        $this->assertSame(
+            ['logical_fallacy' => 'off', 'quality' => 'zero_tolerance'],
+            json_decode($sentBody, true)['tolerances'],
+            'Quality and off should be sent as named'
+        );
+    }
+
+    public function testFlooredCategoryTurnedOffIsRejectedBeforeSending() {
+        $this->browserMock->shouldNotReceive('post');
+
+        $this->expectException(BadRequestException::class);
+        $this->expectExceptionMessage('can be made stricter but not relaxed or turned off: threat');
+
+        $this->client->evaluateComment(
+            $this->testArticleId,
+            'This is a test comment',
+            null,
+            new ModerationTolerances([ModerationCategory::THREAT => ToleranceLevel::OFF])
+        );
     }
 
     public function testEvaluateCommentSendsOnlyNamedTolerancesAsJson() {
@@ -1097,7 +1250,7 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
         $responseMock->shouldReceive('getReasonPhrase')->andReturn('Bad Request');
         $responseMock->shouldReceive('getBody')->andReturn(json_encode([
             'error' => 'Bad Request',
-            'message' => 'These categories can be made stricter but not relaxed: threat',
+            'message' => 'These categories can be made stricter but not relaxed or turned off: threat',
             'code' => 400,
         ]));
 
@@ -1118,7 +1271,7 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
         // The server's tolerance errors wrap validation text that can quote submitted values, so the detail is
         // reachable through getResponseData() but not copied into getMessage()
         $this->assertStringContainsString('Bad Request', $caughtException->getMessage());
-        $this->assertStringContainsString('can be made stricter but not relaxed', $caughtException->getResponseData()['message']);
+        $this->assertStringContainsString('can be made stricter but not relaxed or turned off', $caughtException->getResponseData()['message']);
         $this->assertEquals(400, $caughtException->getStatusCode());
     }
 
@@ -1155,6 +1308,8 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
             $this->assertFalse($result->commentScore->exceedsTolerance);
             $this->assertSame('insult', $result->commentScore->objectionablePhrases[0]->category);
             $this->assertSame('strict', $result->commentScore->tolerances->levelFor(ModerationCategory::HARASSMENT));
+            $this->assertInstanceOf(HealthItemScore::class, $result->commentScore->healthItems[HealthItem::QUALITY]);
+            $this->assertEqualsWithDelta(1.414, $result->commentScore->healthScore, 0.0001);
             $assertionCalled = true;
         });
 

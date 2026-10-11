@@ -3,30 +3,43 @@
 namespace Respectify\Moderation;
 
 /**
- * How much of one kind of problem (a [`ModerationCategory`](ModerationCategory)) a site accepts.
+ * How much of one comment-health item (a [`HealthItem`](HealthItem)) a site accepts.
  *
- * - `RELAXED`: minor instances (severity 1) are not reported. Not allowed for floored categories.
- * - `STANDARD`: the default, and Respectify's normal behaviour. Everything found is reported.
- * - `STRICT`: everything found is reported, and borderline comments always get a full assessment.
- * - `ZERO_TOLERANCE`: everything found is reported, and any sign of the problem gets a full assessment.
+ * Each item that is not off gets a score from 1 to 5. For a problem category, 5 means nothing was found; otherwise
+ * it is the worst finding: minor (severity 1) 4, clear (2) 2, severe (3) 1. For quality, it is the quality score.
+ * Each level sets the lowest score accepted:
+ *
+ * | Level            | Problem category                           | Quality |
+ * |------------------|--------------------------------------------|---------|
+ * | `OFF`            | not scored, not coached, not counted       | not scored |
+ * | `RELAXED`        | 2: accepts minor and clear; severe fails   | 2       |
+ * | `STANDARD`       | 4: accepts minor; clear and severe fail    | 3       |
+ * | `STRICT`         | 5: accepts nothing                         | 4       |
+ * | `ZERO_TOLERANCE` | 5: accepts nothing, and any hint gets a full assessment | 5 |
+ *
+ * Floored categories (see `ModerationCategory::FLOORED`) accept only `STANDARD`, `STRICT` and `ZERO_TOLERANCE`, and
+ * accept no finding at any of them. Findings an item accepts are removed from the response.
  *
  * PHP 7.4 has no native enums, so the values are plain string constants that match the API exactly.
  */
 final class ToleranceLevel {
 
-    /** Minor instances (severity 1) are not reported. Never allowed for floored categories. */
+    /** Not assessed: the item is left out of comment health. Never allowed for floored categories. */
+    public const OFF = 'off';
+
+    /** Accepts minor and clear findings; only severe ones fail. Quality: accepts 2 and above. Never allowed for floored categories. */
     public const RELAXED = 'relaxed';
 
-    /** The default. Everything found is reported. */
+    /** The default. Accepts minor findings; clear and severe ones fail. Quality: accepts 3 and above. */
     public const STANDARD = 'standard';
 
-    /** Everything found is reported, and borderline comments always get a full assessment. */
+    /** Accepts no findings. Quality: accepts 4 and above. */
     public const STRICT = 'strict';
 
-    /** Everything found is reported, and any sign of the problem gets a full assessment. */
+    /** Accepts no findings, and any hint of one gets a full assessment. Quality: accepts only 5. */
     public const ZERO_TOLERANCE = 'zero_tolerance';
 
-    /** The level used for any category that is not named. */
+    /** The level used for any item that is not named. */
     public const DEFAULT_LEVEL = self::STANDARD;
 
     /**
@@ -34,10 +47,20 @@ final class ToleranceLevel {
      * @var string[]
      */
     public const ALL = [
+        self::OFF,
         self::RELAXED,
         self::STANDARD,
         self::STRICT,
         self::ZERO_TOLERANCE,
+    ];
+
+    /**
+     * The levels a floored category rejects.
+     * @var string[]
+     */
+    public const BELOW_FLOOR = [
+        self::OFF,
+        self::RELAXED,
     ];
 
     /**
@@ -54,5 +77,15 @@ final class ToleranceLevel {
      */
     public static function isValid(string $level): bool {
         return in_array($level, self::ALL, true);
+    }
+
+    /**
+     * Whether a floored category rejects this level (`off` or `relaxed`).
+     *
+     * @param string $level The level to check.
+     * @return bool True if the level is below the floor.
+     */
+    public static function isBelowFloor(string $level): bool {
+        return in_array($level, self::BELOW_FLOOR, true);
     }
 }

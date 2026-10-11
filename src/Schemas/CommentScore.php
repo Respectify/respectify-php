@@ -50,12 +50,6 @@ class CommentScore {
     public bool $appearsLowEffort;
 
     /**
-     * Overall quality score (1=poor, 5=excellent)
-     * Constraints: ge=1, le=5
-     */
-    public int $overallScore;
-
-    /**
      * Toxicity score (0.0=not toxic, 1.0=highly toxic)
      * Constraints: ge=0.0, le=1.0
      */
@@ -67,6 +61,12 @@ class CommentScore {
     public string $toxicityExplanation;
 
     /**
+     * Comment health, 1-5: health_score rounded. The quality score alone is health_items['quality'].
+     * Constraints: ge=1, le=5
+     */
+    public int $overallScore;
+
+    /**
      * True when the comment has a problem the site's tolerances do not accept. This is what integrations
      * should act on (eg, to coach the commenter). Note `$toxicityScore` is not adjusted for tolerances.
      * False if the server did not supply it.
@@ -74,10 +74,21 @@ class CommentScore {
     public bool $exceedsTolerance;
 
     /**
-     * The tolerances this score was judged under: the API key's saved tolerances with any per-call
-     * overrides applied. Categories the server did not report read as `standard`.
+     * The comment-health levels this score was judged under, as sent with the request.
+     * Items the server did not report read as `standard`.
      */
     public ModerationTolerances $tolerances;
+
+    /**
+     * Comment health: the geometric mean of the quality score and the worst problem item's score, leaving out whichever is turned off. None when every item is off.
+     * Constraints: ge=1.0, le=5.0
+     */
+    public ?float $healthScore;
+
+    /**
+     * Each comment-health item not turned off, by name: the nine categories and 'quality'
+     */
+    public array $healthItems;
 
     /**
      * CommentScore constructor.
@@ -88,10 +99,15 @@ class CommentScore {
         $this->objectionablePhrases = array_map(fn($item) => new ObjectionablePhrase($item), $data['objectionable_phrases'] ?? []);
         $this->negativeTonePhrases = array_map(fn($item) => new NegativeTonePhrase($item), $data['negative_tone_phrases'] ?? []);
         $this->appearsLowEffort = $data['appears_low_effort'] ?? false;
-        $this->overallScore = $data['overall_score'] ?? 0;
         $this->toxicityScore = floatval($data['toxicity_score'] ?? 0.0);
         $this->toxicityExplanation = $data['toxicity_explanation'] ?? '';
+        $this->overallScore = $data['overall_score'] ?? 0;
         $this->exceedsTolerance = $data['exceeds_tolerance'] ?? false;
         $this->tolerances = ModerationTolerances::fromApiResponse(is_array($data['tolerances'] ?? null) ? $data['tolerances'] : []);
+        $this->healthScore = $data['health_score'] ?? null;
+        $this->healthItems = [];
+        foreach (($data['health_items'] ?? []) as $key => $item) {
+            $this->healthItems[$key] = new HealthItemScore($item);
+        }
     }
 }

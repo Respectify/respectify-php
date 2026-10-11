@@ -3,10 +3,11 @@
 namespace Respectify\Moderation;
 
 /**
- * The kinds of problem a comment can have. Each has its own tolerance level (see [`ToleranceLevel`](ToleranceLevel)),
- * set per API key in the Respectify dashboard or per call with [`ModerationTolerances`](ModerationTolerances).
+ * The kinds of problem a comment can have. Each is a comment-health item (see [`HealthItem`](HealthItem), which adds
+ * `quality`) with its own tolerance level (see [`ToleranceLevel`](ToleranceLevel)), sent on each call with
+ * [`ModerationTolerances`](ModerationTolerances).
  *
- * The first four are *floored* (see `FLOORED`): they can be made stricter than `standard`, but never `relaxed`.
+ * The first four are *floored* (see `FLOORED`): they can be made stricter than `standard`, but never `relaxed` or `off`.
  *
  * Findings returned in `CommentScore::$objectionablePhrases` and `CommentScore::$negativeTonePhrases` carry one of the
  * values in `FINDING_CATEGORIES` as their `category`. `LOGICAL_FALLACY` and `LOW_EFFORT` are tolerance categories
@@ -53,7 +54,7 @@ final class ModerationCategory {
     public const LOW_EFFORT = 'low_effort';
 
     /**
-     * Every category that has a tolerance level, in the order the API documents them.
+     * Every problem category, in the order the API documents them. `HealthItem::ALL` adds `quality`.
      * @var string[]
      */
     public const ALL = [
@@ -69,8 +70,8 @@ final class ModerationCategory {
     ];
 
     /**
-     * Categories that can be made stricter but never relaxed. The API rejects `relaxed` for these with HTTP 400,
-     * and this library rejects it before sending.
+     * Categories that can be made stricter but never relaxed or turned off. The API rejects `relaxed` and `off` for
+     * these with HTTP 400, and this library rejects them before sending.
      * @var string[]
      */
     public const FLOORED = [
@@ -101,7 +102,7 @@ final class ModerationCategory {
     }
 
     /**
-     * Whether a string is one of the known tolerance categories.
+     * Whether a string is one of the nine problem categories (not `quality`; see `HealthItem::isValid()`).
      *
      * @param string $category The category to check, eg `'insult'`.
      * @return bool True if the category is known.
@@ -111,7 +112,7 @@ final class ModerationCategory {
     }
 
     /**
-     * Whether a category is floored, ie can never be set to `relaxed`.
+     * Whether a category is floored, ie can never be set to `relaxed` or `off`.
      *
      * @param string $category The category to check, eg `'threat'`.
      * @return bool True if the category is floored.
