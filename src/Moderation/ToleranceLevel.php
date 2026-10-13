@@ -6,16 +6,19 @@ namespace Respectify\Moderation;
  * How much of one comment-health item (a [`HealthItem`](HealthItem)) a site accepts.
  *
  * Each item that is not off gets a score from 1 to 5. For a problem category, 5 means nothing was found; otherwise
- * it is the worst finding: minor (severity 1) 4, clear (2) 2, severe (3) 1. For quality, it is the quality score.
- * Each level sets the lowest score accepted:
+ * it is the worst finding: minor (severity 1) 4, clear (2) 3, severe (3) 2, extreme (4) 1. For quality, it is the
+ * quality score. Each level sets the lowest score accepted:
  *
- * | Level            | Problem category                           | Quality |
- * |------------------|--------------------------------------------|---------|
- * | `OFF`            | not scored, not coached, not counted       | not scored |
- * | `RELAXED`        | 2: accepts minor and clear; severe fails   | 2       |
- * | `STANDARD`       | 4: accepts minor; clear and severe fail    | 3       |
- * | `STRICT`         | 5: accepts nothing                         | 4       |
- * | `ZERO_TOLERANCE` | 5: accepts nothing, and any hint gets a full assessment | 5 |
+ * | Level            | Problem category                                       | Quality |
+ * |------------------|--------------------------------------------------------|---------|
+ * | `OFF`            | not scored, not coached, not counted                   | not scored |
+ * | `PERMISSIVE`     | 2: accepts minor, clear and severe; only extreme fails | 2       |
+ * | `RELAXED`        | 3: accepts minor and clear; severe and extreme fail    | 2       |
+ * | `STANDARD`       | 4: accepts minor; clear, severe and extreme fail       | 3       |
+ * | `STRICT`         | 5: accepts nothing                                     | 4       |
+ * | `ZERO_TOLERANCE` | 5: accepts nothing, and any hint gets a full assessment | 5      |
+ *
+ * Quality has only four distinct minimums, so `PERMISSIVE` and `RELAXED` share 2 there.
  *
  * Floored categories (see `ModerationCategory::FLOORED`) accept only `STANDARD`, `STRICT` and `ZERO_TOLERANCE`, and
  * accept no finding at any of them. Findings an item accepts are removed from the response.
@@ -27,10 +30,13 @@ final class ToleranceLevel {
     /** Not assessed: the item is left out of comment health. Never allowed for floored categories. */
     public const OFF = 'off';
 
-    /** Accepts minor and clear findings; only severe ones fail. Quality: accepts 2 and above. Never allowed for floored categories. */
+    /** Filters only the very worst: accepts minor, clear and severe findings; only extreme ones fail. Quality: accepts 2 and above. Never allowed for floored categories. */
+    public const PERMISSIVE = 'permissive';
+
+    /** Accepts minor and clear findings; severe and extreme ones fail. Quality: accepts 2 and above. Never allowed for floored categories. */
     public const RELAXED = 'relaxed';
 
-    /** The default. Accepts minor findings; clear and severe ones fail. Quality: accepts 3 and above. */
+    /** The default. Accepts minor findings; clear, severe and extreme ones fail. Quality: accepts 3 and above. */
     public const STANDARD = 'standard';
 
     /** Accepts no findings. Quality: accepts 4 and above. */
@@ -48,6 +54,7 @@ final class ToleranceLevel {
      */
     public const ALL = [
         self::OFF,
+        self::PERMISSIVE,
         self::RELAXED,
         self::STANDARD,
         self::STRICT,
@@ -60,6 +67,7 @@ final class ToleranceLevel {
      */
     public const BELOW_FLOOR = [
         self::OFF,
+        self::PERMISSIVE,
         self::RELAXED,
     ];
 
@@ -80,7 +88,7 @@ final class ToleranceLevel {
     }
 
     /**
-     * Whether a floored category rejects this level (`off` or `relaxed`).
+     * Whether a floored category rejects this level (`off`, `permissive` or `relaxed`).
      *
      * @param string $level The level to check.
      * @return bool True if the level is below the floor.

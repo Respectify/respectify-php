@@ -47,9 +47,9 @@ class ObjectionablePhrase {
     public string $category;
 
     /**
-     * How serious this finding is: 1 minor, 2 clear, 3 severe (0 if the server did not supply it).
+     * How serious this finding is: 1 minor, 2 clear, 3 severe, 4 extreme (0 if the server did not supply it).
      * A site relaxed about this kind of problem is not sent severity-1 findings.
-     * Constraints: ge=1, le=3
+     * Constraints: ge=1, le=4
      */
     public int $severity;
 

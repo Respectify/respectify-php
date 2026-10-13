@@ -59,7 +59,7 @@ final class HealthItem {
     }
 
     /**
-     * Whether an item is floored, ie can never be `relaxed` or `off`. Only the four floored categories are.
+     * Whether an item is floored, ie can never be `permissive`, `relaxed` or `off`. Only the four floored categories are.
      *
      * @param string $item The item to check, eg `'threat'`.
      * @return bool True if the item is floored.
@@ -72,7 +72,7 @@ final class HealthItem {
      * The levels an item accepts, from most to least accepting.
      *
      * @param string $item A `HealthItem::ALL` value.
-     * @return string[] `ToleranceLevel` values: all five, or `standard`, `strict` and `zero_tolerance` for a floored item.
+     * @return string[] `ToleranceLevel` values: all six, or `standard`, `strict` and `zero_tolerance` for a floored item.
      */
     public static function allowedLevels(string $item): array {
         if (self::isFloored($item)) {

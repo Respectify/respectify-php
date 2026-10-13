@@ -28,24 +28,27 @@ $client->run();
 
 Comment health is made of ten items: nine categories of problem (`threat`, `identity_attack`, `sexual_content`,
 `harassment`, `insult`, `profanity`, `dismissive_tone`, `logical_fallacy`, `low_effort`) and `quality`. Each item has a
-level: `off`, `relaxed`, `standard` (the default), `strict` or `zero_tolerance`. Nothing is saved on the API key: pass a
+level: `off`, `permissive`, `relaxed`, `standard` (the default), `strict` or `zero_tolerance`. Nothing is saved on the API key: pass a
 `ModerationTolerances` as the last argument of `evaluateComment()` or `megacall()` on every call. Items you do not name
 are `standard`; only the items you name are sent.
 
 Each item that is not `off` gets a score from 1 to 5. For a problem category, 5 means nothing was found; otherwise it
-is the worst finding (minor 4, clear 2, severe 1). For `quality`, it is the quality score. Each level sets the lowest
+is the worst finding (minor 4, clear 3, severe 2, extreme 1). For `quality`, it is the quality score. Each level sets the lowest
 score accepted:
 
 | Level | Problem category | Quality |
 |---|---|---|
 | `off` | not scored, not coached, not counted | not scored |
-| `relaxed` | 2 (minor and clear findings accepted) | 2 |
+| `permissive` | 2 (filters only the very worst: minor, clear and severe findings accepted) | 2 |
+| `relaxed` | 3 (minor and clear findings accepted) | 2 |
 | `standard` | 4 (minor findings accepted) | 3 |
 | `strict` | 5 (no findings accepted) | 4 |
 | `zero_tolerance` | 5 (no findings accepted, and any hint gets a full assessment) | 5 |
 
+Quality has only four distinct minimums, so `permissive` and `relaxed` share 2 there.
+
 `threat`, `identity_attack`, `sexual_content` and `harassment` are floored: they can be made stricter but never
-`relaxed` or `off`, and accept no finding at any level. `ModerationTolerances` rejects a floor violation (and any unknown
+`permissive`, `relaxed` or `off`, and accept no finding at any level. `ModerationTolerances` rejects a floor violation (and any unknown
 item or level) with a `BadRequestException` when it is constructed, so an invalid request is never sent.
 `HealthItem::allowedLevels()` lists the levels an item accepts, for building a settings UI.
 
@@ -60,7 +63,9 @@ minimum, or the comment is severely toxic. The response also has:
 
 Older servers send neither `healthItems` nor `healthScore`; they read as `[]` and `null`. Findings an item accepts are
 removed from the response. `toxicityScore` is not adjusted for tolerances. Each objectionable or negative tone phrase
-also has a `category` and a `severity` (1 minor, 2 clear, 3 severe), and each logical fallacy has a `severity`.
+also has a `category` and a `severity` (1 minor, 2 clear, 3 severe, 4 extreme), and each logical fallacy has a
+`severity`. Severe is a slur or dehumanising language, a threat, sexual harassment, urging self-harm or sustained
+abuse; extreme is the same at full force, and no level accepts it.
 
 ```php
 use Respectify\Moderation\HealthItem;

@@ -25,7 +25,7 @@ namespace Respectify\Schemas;
 class HealthItemScore {
 
     /**
-     * 5 means nothing found. For a category: minor finding 4, clear 2, severe 1. For quality: the quality score.
+     * 5 means nothing found. For a category: minor finding 4, clear 3, severe 2, extreme 1. For quality: the quality score.
      * Constraints: ge=1, le=5
      */
     public int $score;

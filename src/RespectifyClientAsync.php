@@ -29,7 +29,6 @@ use Respectify\Schemas\DogwhistleDetection;
 use Respectify\Schemas\DogwhistleDetails;
 use Respectify\Schemas\DogwhistleResult;
 use Respectify\Schemas\MegaCallResult;
-use Respectify\Schemas\LlmDetectionResult;
 use Respectify\Schemas\InitTopicResponse;
 use Respectify\Schemas\UserCheckResponse;
 use Respectify\Moderation\CommentHealthResponse;
@@ -444,7 +443,7 @@ class RespectifyClientAsync {
      * @param string $articleContextId a string containing UUID that identifies the article/blog/etc that this comment was written in the context of. This is the value you get by calling `initTopicFromText` or `initTopicFromUrl`.
      * @param string $comment The comment text: this is what is evaluated.
      * @param string|null $replyToComment Provides additional context: the comment to which the one being evaluated is a reply. This is optional.
-     * @param ModerationTolerances|null $tolerances Optional. The site's level for each comment-health item (the nine categories and `quality`); items not named are `standard`. Invalid tolerances (eg `relaxed` or `off` on a floored category) are rejected when the `ModerationTolerances` is constructed, so they are never sent.
+     * @param ModerationTolerances|null $tolerances Optional. The site's level for each comment-health item (the nine categories and `quality`); items not named are `standard`. Invalid tolerances (eg `permissive`, `relaxed` or `off` on a floored category) are rejected when the `ModerationTolerances` is constructed, so they are never sent.
      * @return PromiseInterface<CommentScore> A [promise](https://reactphp.org/promise/#promiseinterface) that resolves to a [CommentScore](CommentScore) object.
      * @throws RespectifyException
      * @throws JsonDecodingException
@@ -747,7 +746,7 @@ class RespectifyClientAsync {
      *
      * @param string $comment The comment text to evaluate
      * @param string|null $articleContextId Optional. The article context UUID from initTopicFromText/initTopicFromUrl. Required for relevance, commentScore, and dogwhistle checks.
-     * @param array $services List of services to include in the call. Valid values: 'spam', 'relevance', 'commentscore', 'dogwhistle', 'perspectiveAnalyzeComment', 'llmdetect'
+     * @param array $services List of services to include in the call. Valid values: 'spam', 'relevance', 'commentscore', 'dogwhistle', 'perspectiveAnalyzeComment'
      * @param array|null $bannedTopics Optional. List of banned topics to check against when 'relevance' is included
      * @param string|null $replyToComment Optional. The comment to which the evaluated comment is replying, used when 'commentscore' is included
      * @param array|null $sensitiveTopics Optional. List of sensitive topics to watch for when 'dogwhistle' is included
@@ -781,7 +780,6 @@ class RespectifyClientAsync {
         }
 
         $includePerspective = in_array('perspectiveAnalyzeComment', $services);
-        $includeLlmDetect = in_array('llmdetect', $services);
 
         $data = [
             'comment' => $comment,
@@ -789,8 +787,7 @@ class RespectifyClientAsync {
             'run_relevance_check' => $includeRelevance,
             'run_comment_score' => $includeCommentScore,
             'run_dogwhistle_check' => $includeDogwhistle,
-            'run_perspective' => $includePerspective,
-            'run_llm_detect' => $includeLlmDetect
+            'run_perspective' => $includePerspective
         ];
 
         if ($articleContextId !== null) {
@@ -843,42 +840,6 @@ class RespectifyClientAsync {
             if ($e instanceof \React\Http\Message\ResponseException) {
                 $response = $e->getResponse();
                 $this->handleError($response);
-            } else {
-                throw $e;
-            }
-        });
-    }
-
-    /**
-     * Check whether a comment appears to be written by an LLM.
-     *
-     * @param string $comment The comment text to analyze
-     * @return PromiseInterface<LlmDetectionResult>
-     */
-    public function checkLlmLikeness(string $comment): PromiseInterface {
-        if (empty($comment)) {
-            throw new BadRequestException('Comment must be provided');
-        }
-
-        return $this->client->post(
-            $this->getApiUrl('llmdetect'),
-            $this->getHeaders(),
-            json_encode(['comment' => $comment])
-        )->then(function (ResponseInterface $response) {
-            if ($response->getStatusCode() === 200) {
-                try {
-                    $responseData = $this->decodeJsonObject($response);
-                    $responseData = $this->sanitiseReturnedData($responseData);
-                    return new LlmDetectionResult($responseData);
-                } catch (\Throwable $e) {
-                    throw $this->unexpectedResponseStructure($e, $response);
-                }
-            } else {
-                $this->handleError($response);
-            }
-        })->otherwise(function (\Exception $e) {
-            if ($e instanceof \React\Http\Message\ResponseException) {
-                $this->handleError($e->getResponse());
             } else {
                 throw $e;
             }

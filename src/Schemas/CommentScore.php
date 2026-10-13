@@ -40,7 +40,7 @@ class CommentScore {
     public array $objectionablePhrases;
 
     /**
-     * List of phrases with negative tone
+     * Phrases that are REALLY negative or REALLY dismissive of a person: contempt, ridicule, or writing them off. Blunt, curt or mildly sarcastic criticism of a view or idea is never listed
      */
     public array $negativeTonePhrases;
 

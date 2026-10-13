@@ -541,7 +541,6 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
                 'attributeScores' => [],
                 'languages' => ['en'],
             ],
-            'llm_detection' => null,
         ]));
 
         $this->browserMock->shouldReceive('post')
@@ -890,7 +889,7 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
                     'explanation' => 'A put-down of a person.',
                     'suggested_rewrite' => '',
                     'category' => 'insult',
-                    'severity' => 3,
+                    'severity' => 4,
                 ]
             ],
             'negative_tone_phrases' => [
@@ -913,7 +912,7 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
                 'sexual_content' => 'standard',
                 'harassment' => 'strict',
                 'insult' => 'strict',
-                'profanity' => 'relaxed',
+                'profanity' => 'permissive',
                 'dismissive_tone' => 'standard',
                 'logical_fallacy' => 'standard',
                 'low_effort' => 'zero_tolerance',
@@ -928,7 +927,7 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
                 'insult' => ['score' => 1, 'minimum' => 5, 'is_acceptable' => false],
                 'profanity' => ['score' => 5, 'minimum' => 2, 'is_acceptable' => true],
                 'dismissive_tone' => ['score' => 4, 'minimum' => 4, 'is_acceptable' => true],
-                'logical_fallacy' => ['score' => 2, 'minimum' => 4, 'is_acceptable' => false],
+                'logical_fallacy' => ['score' => 3, 'minimum' => 4, 'is_acceptable' => false],
                 'low_effort' => ['score' => 5, 'minimum' => 5, 'is_acceptable' => true],
                 'quality' => ['score' => 2, 'minimum' => 4, 'is_acceptable' => false],
             ],
@@ -952,14 +951,14 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
 
             $this->assertInstanceOf(ModerationTolerances::class, $commentScore->tolerances);
             $this->assertSame('strict', $commentScore->tolerances->levelFor(ModerationCategory::INSULT));
-            $this->assertSame('relaxed', $commentScore->tolerances->levelFor(ModerationCategory::PROFANITY));
+            $this->assertSame('permissive', $commentScore->tolerances->levelFor(ModerationCategory::PROFANITY), 'permissive is a known level');
             $this->assertSame('zero_tolerance', $commentScore->tolerances->levelFor(ModerationCategory::LOW_EFFORT));
             $this->assertSame('strict', $commentScore->tolerances->levelFor(HealthItem::QUALITY));
             $this->assertCount(10, $commentScore->tolerances->toArray());
 
             $this->assertSame(2, $commentScore->logicalFallacies[0]->severity);
             $this->assertSame('insult', $commentScore->objectionablePhrases[0]->category);
-            $this->assertSame(3, $commentScore->objectionablePhrases[0]->severity);
+            $this->assertSame(4, $commentScore->objectionablePhrases[0]->severity, 'Severity 4 (extreme) is passed through');
             $this->assertSame('dismissive_tone', $commentScore->negativeTonePhrases[0]->category);
             $this->assertSame(1, $commentScore->negativeTonePhrases[0]->severity);
 
@@ -1056,8 +1055,10 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
             $this->assertFalse($quality->isAcceptable);
 
             $insult = $commentScore->healthItems[ModerationCategory::INSULT];
-            $this->assertSame(1, $insult->score);
+            $this->assertSame(1, $insult->score, 'An extreme (severity 4) finding scores 1');
             $this->assertSame(5, $insult->minimum);
+            $this->assertSame(3, $commentScore->healthItems[ModerationCategory::LOGICAL_FALLACY]->score, 'A clear (severity 2) finding scores 3');
+            $this->assertSame(2, $commentScore->healthItems[ModerationCategory::PROFANITY]->minimum, 'Permissive accepts down to 2');
             $this->assertFalse($insult->isAcceptable);
             $this->assertTrue($commentScore->healthItems[ModerationCategory::DISMISSIVE_TONE]->isAcceptable);
             $assertionCalled = true;
@@ -1184,7 +1185,7 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
 
         $tolerances = new ModerationTolerances([
             ModerationCategory::INSULT => ToleranceLevel::STRICT,
-            ModerationCategory::PROFANITY => ToleranceLevel::RELAXED,
+            ModerationCategory::PROFANITY => ToleranceLevel::PERMISSIVE,
         ]);
         $promise = $this->client->evaluateComment($this->testArticleId, 'This is a test comment', null, $tolerances);
         $assertionCalled = false;
@@ -1198,7 +1199,7 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
         $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
         $decoded = json_decode($sentBody, true);
         $this->assertSame(
-            ['insult' => 'strict', 'profanity' => 'relaxed'],
+            ['insult' => 'strict', 'profanity' => 'permissive'],
             $decoded['tolerances'],
             'Only named categories should be sent, as a nested JSON object'
         );
@@ -1226,6 +1227,21 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
         $this->assertCount(2, $sentBodies);
         $this->assertArrayNotHasKey('tolerances', $sentBodies[0], 'No tolerances given means the field is not sent');
         $this->assertArrayNotHasKey('tolerances', $sentBodies[1], 'Empty tolerances are not sent (they would encode as [] not {})');
+    }
+
+    public function testPermissiveFlooredToleranceIsRejectedBeforeSending() {
+        // The client must reject this itself; the request must never be made
+        $this->browserMock->shouldNotReceive('post');
+
+        $this->expectException(BadRequestException::class);
+        $this->expectExceptionMessage('These categories can be made stricter but not relaxed or turned off: harassment');
+
+        $this->client->evaluateComment(
+            $this->testArticleId,
+            'This is a test comment',
+            null,
+            new ModerationTolerances([ModerationCategory::HARASSMENT => ToleranceLevel::PERMISSIVE])
+        );
     }
 
     public function testRelaxedFlooredToleranceIsRejectedBeforeSending() {

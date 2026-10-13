@@ -161,15 +161,6 @@ class ExceptionMessagePrivacyTest extends TestCase {
         $this->assertNoMarker($e);
     }
 
-    public function testMalformedJsonOnLlmDetectionKeepsBodyOutOfMessage() {
-        $this->postReturns200('{"is_llm": ' . self::MARKER);
-
-        $e = $this->rejectionOf($this->client->checkLlmLikeness('A test comment'));
-
-        $this->assertInstanceOf(JsonDecodingException::class, $e);
-        $this->assertNoMarker($e);
-    }
-
     public function testMalformedJsonOnPerspectiveKeepsBodyOutOfMessage() {
         $this->postReturns200('{"attributeScores": ' . self::MARKER);
 

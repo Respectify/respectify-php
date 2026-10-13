@@ -7,7 +7,8 @@ namespace Respectify\Moderation;
  * `quality`) with its own tolerance level (see [`ToleranceLevel`](ToleranceLevel)), sent on each call with
  * [`ModerationTolerances`](ModerationTolerances).
  *
- * The first four are *floored* (see `FLOORED`): they can be made stricter than `standard`, but never `relaxed` or `off`.
+ * The first four are *floored* (see `FLOORED`): they can be made stricter than `standard`, but never `permissive`,
+ * `relaxed` or `off`.
  *
  * Findings returned in `CommentScore::$objectionablePhrases` and `CommentScore::$negativeTonePhrases` carry one of the
  * values in `FINDING_CATEGORIES` as their `category`. `LOGICAL_FALLACY` and `LOW_EFFORT` are tolerance categories
@@ -70,7 +71,7 @@ final class ModerationCategory {
     ];
 
     /**
-     * Categories that can be made stricter but never relaxed or turned off. The API rejects `relaxed` and `off` for
+     * Categories that can be made stricter but never relaxed or turned off. The API rejects `permissive`, `relaxed` and `off` for
      * these with HTTP 400, and this library rejects them before sending.
      * @var string[]
      */
@@ -112,7 +113,7 @@ final class ModerationCategory {
     }
 
     /**
-     * Whether a category is floored, ie can never be set to `relaxed` or `off`.
+     * Whether a category is floored, ie can never be set to `permissive`, `relaxed` or `off`.
      *
      * @param string $category The category to check, eg `'threat'`.
      * @return bool True if the category is floored.

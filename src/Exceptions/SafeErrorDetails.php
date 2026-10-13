@@ -53,7 +53,6 @@ final class SafeErrorDetails {
         'Article context ID is required for comment score, relevance, and dogwhistle checks',
         "Need either 'text' or 'url' parameter.",
         'No text found from the provided URL.',
-        'Could not complete LLM detection analysis for this input. Try a shorter comment.',
         'Could not complete Perspective analysis for this input. Try a shorter comment.',
         'tolerances must be an object mapping categories to levels',
         'comment.text is required',

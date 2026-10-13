@@ -15,7 +15,7 @@ use Respectify\Exceptions\BadRequestException;
  *
  * Validation happens in the constructor, so an invalid set of tolerances is never sent to the API. It throws
  * a `BadRequestException` (the same exception the server's HTTP 400 maps to) for an unknown item, an unknown
- * level, or `relaxed` or `off` on a floored category (threat, identity_attack, sexual_content, harassment).
+ * level, or `permissive`, `relaxed` or `off` on a floored category (threat, identity_attack, sexual_content, harassment).
  *
  * `CommentScore::$tolerances` is also a `ModerationTolerances`: the full set the comment was judged under.
  *
@@ -24,7 +24,8 @@ use Respectify\Exceptions\BadRequestException;
  * use Respectify\Moderation\ModerationTolerances;
  *
  * $tolerances = new ModerationTolerances([
- *     'profanity' => 'relaxed',
+ *     'profanity' => 'permissive',
+ *     'insult' => 'relaxed',
  *     'logical_fallacy' => 'off',
  *     'threat' => 'zero_tolerance',
  *     'quality' => 'strict',
@@ -49,7 +50,7 @@ final class ModerationTolerances {
      *
      * @param array<string, string> $levels Map of health item (eg `'insult'` or `'quality'`) to level (eg `'strict'`).
      *   Items not named are `standard`. Use the `HealthItem`, `ModerationCategory` and `ToleranceLevel` constants.
-     * @throws BadRequestException If an item or level is unknown, or a floored category is `relaxed` or `off`.
+     * @throws BadRequestException If an item or level is unknown, or a floored category is `permissive`, `relaxed` or `off`.
      */
     public function __construct(array $levels = []) {
         $this->levels = self::validate($levels);
@@ -59,7 +60,7 @@ final class ModerationTolerances {
      * Build tolerances from the `tolerances` object in an API response.
      *
      * This is deliberately lenient so a newer server cannot break an older client: entries with an unknown
-     * item or level, or a floored category reported as `relaxed` or `off`, are ignored (and so read as `standard`). Values are
+     * item or level, or a floored category reported as `permissive`, `relaxed` or `off`, are ignored (and so read as `standard`). Values are
      * compared against fixed whitelists, so nothing from the response is stored unless it is a known constant.
      *
      * @param array<mixed> $data The decoded `tolerances` object from the response.
@@ -141,7 +142,7 @@ final class ModerationTolerances {
      *
      * @param array<mixed> $levels The map to validate.
      * @return array<string, string> The validated map, in the API's documented item order.
-     * @throws BadRequestException If an item or level is unknown, or a floored category is `relaxed` or `off`.
+     * @throws BadRequestException If an item or level is unknown, or a floored category is `permissive`, `relaxed` or `off`.
      */
     private static function validate(array $levels): array {
         $relaxedFloors = [];
