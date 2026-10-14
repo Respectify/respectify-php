@@ -308,6 +308,129 @@ class RespectifyClientAsyncAlwaysMockTest extends TestCase {
         $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
     }
 
+    public function testCheckSpamParsesSuspectedSpamAndSuggestion() {
+        // Jev between 0.50 and 0.85: not spam, but suspected, with a suggestion for the commenter
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'is_spam' => false,
+            'suspected_spam' => true,
+            'suggestion' => 'This looks like spam. How about removing the link?',
+            'confidence' => 0.7,
+            'reasoning' => '',
+        ]));
+
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+
+        $promise = $this->client->checkSpam('Great article! Visit my site');
+        $assertionCalled = false;
+
+        $promise->then(function ($result) use (&$assertionCalled) {
+            $this->assertInstanceOf(SpamDetectionResult::class, $result);
+            $this->assertFalse($result->isSpam, 'A suspected comment is not spam');
+            $this->assertTrue($result->suspectedSpam, 'suspected_spam should be parsed');
+            $this->assertSame('This looks like spam. How about removing the link?', $result->suggestion);
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testCheckSpamSanitisesSuggestion() {
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'is_spam' => false,
+            'suspected_spam' => true,
+            'suggestion' => 'Remove <script>alert("xss")</script> the link',
+            'confidence' => 0.6,
+            'reasoning' => '',
+        ]));
+
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+
+        $promise = $this->client->checkSpam('Some comment');
+        $assertionCalled = false;
+
+        $promise->then(function ($result) use (&$assertionCalled) {
+            $this->assertSame('Remove &lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt; the link', $result->suggestion);
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testCheckSpamDefaultsWhenSuspectedFieldsAbsent() {
+        // An older server sends neither suspected_spam nor suggestion
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'is_spam' => true,
+            'confidence' => 0.95,
+            'reasoning' => '',
+        ]));
+
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+
+        $promise = $this->client->checkSpam('Buy now');
+        $assertionCalled = false;
+
+        $promise->then(function ($result) use (&$assertionCalled) {
+            $this->assertTrue($result->isSpam);
+            $this->assertFalse($result->suspectedSpam, 'suspected_spam defaults to false');
+            $this->assertSame('', $result->suggestion, 'suggestion defaults to empty');
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testMegacallSuspectedSpamKeepsOtherChecks() {
+        // A suspected comment is not spam, so megacall still returns the other checks
+        $responseMock = m::mock(ResponseInterface::class);
+        $responseMock->shouldReceive('getStatusCode')->andReturn(200);
+        $responseMock->shouldReceive('getBody')->andReturn(json_encode([
+            'spam_check' => [
+                'is_spam' => false,
+                'suspected_spam' => true,
+                'suggestion' => 'This reads like promotion. How about saying what you think about the discussion?',
+                'confidence' => 0.6,
+                'reasoning' => '',
+            ],
+            'comment_score' => [
+                'logical_fallacies' => [],
+                'objectionable_phrases' => [],
+                'negative_tone_phrases' => [],
+                'appears_low_effort' => false,
+                'overall_score' => 4,
+            ],
+        ]));
+
+        $this->browserMock->shouldReceive('post')->andReturn(resolve($responseMock));
+
+        $promise = $this->client->megacall('Our product is the best', $this->testArticleId, ['spam', 'commentscore']);
+        $assertionCalled = false;
+
+        $promise->then(function ($result) use (&$assertionCalled) {
+            $this->assertInstanceOf(MegaCallResult::class, $result);
+            $this->assertFalse($result->spamCheck->isSpam);
+            $this->assertTrue($result->spamCheck->suspectedSpam);
+            $this->assertSame('This reads like promotion. How about saying what you think about the discussion?', $result->spamCheck->suggestion);
+            $this->assertInstanceOf(CommentScore::class, $result->commentScore, 'Other checks still run for a suspected comment');
+            $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
     public function testCommentRelevanceSanitization() {
         $responseMock = m::mock(ResponseInterface::class);
         $responseMock->shouldReceive('getStatusCode')->andReturn(200);

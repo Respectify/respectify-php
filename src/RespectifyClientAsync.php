@@ -565,6 +565,9 @@ class RespectifyClientAsync {
      *
      * This endpoint allows you to evaluate a comment for spam without the full comment score analysis.
      * The article context is optional, and if omitted the comment is evaluated on its own.
+     *
+     * The result has one of three outcomes: `isSpam` (delete it), `suspectedSpam` (send it back to the commenter
+     * with `suggestion` instead of deleting it), or neither (publish it).
      * 
      * @param string $comment The comment text to check for spam.
      * @param string|null $articleContextId Optional. The article context UUID from initTopicFromText/initTopicFromUrl.

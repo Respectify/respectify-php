@@ -93,6 +93,34 @@ $client->evaluateComment($articleId, $comment, null, $tolerances)->then(function
 $client->run();
 ```
 
+### Spam: spam, suspected spam, or neither
+
+`checkSpam()` and `megacall()` (with the `'spam'` service, as `$result->spamCheck`) return a `SpamDetectionResult`
+with one of three outcomes:
+
+- `isSpam` true: spam. Delete or trash the comment.
+- `suspectedSpam` true (and `isSpam` false): it looks like spam but is not certain. Do not delete it: send it back to
+  the commenter with `suggestion` (for example "This looks like spam. How about removing the link?"), the way you would
+  a comment that needs revising for comment health. A real person will fix it; a spammer won't bother.
+- Neither: not spam. Publish it.
+
+`suggestion` is empty unless `suspectedSpam` is true. A suspected comment is not spam, so in `megacall()` the other
+checks still run for it and are returned as usual. Older servers send neither field; they read as `false` and `''`.
+
+```php
+$client->checkSpam($comment, $articleId)->then(function ($spam) {
+    if ($spam->isSpam) {
+        // delete it
+    } elseif ($spam->suspectedSpam) {
+        // send it back to the commenter, showing $spam->suggestion
+    } else {
+        // publish it
+    }
+});
+
+$client->run();
+```
+
 ### Errors and logging
 
 API failures reject the promise with a `RespectifyException` subclass (`BadRequestException`, `UnauthorizedException`,
