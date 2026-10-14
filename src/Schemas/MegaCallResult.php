@@ -50,11 +50,6 @@ class MegaCallResult {
     public ?PerspectiveAnalyzeCommentResponse $perspective;
 
     /**
-     * LLM-likeness detection result. Null unless requested via include_llm_detection.
-     */
-    public ?LlmDetectionResult $llmDetection;
-
-    /**
      * MegaCallResult constructor.
      * @param array $data The JSON data from the API
      */
@@ -64,6 +59,5 @@ class MegaCallResult {
         $this->relevanceCheck = isset($data['relevance_check']) ? new CommentRelevanceResult($data['relevance_check']) : null;
         $this->dogwhistleCheck = isset($data['dogwhistle_check']) ? new DogwhistleResult($data['dogwhistle_check']) : null;
         $this->perspective = isset($data['perspective']) ? new PerspectiveAnalyzeCommentResponse($data['perspective']) : null;
-        $this->llmDetection = isset($data['llm_detection']) ? new LlmDetectionResult($data['llm_detection']) : null;
     }
 }

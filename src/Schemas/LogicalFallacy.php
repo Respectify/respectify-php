@@ -45,6 +45,13 @@ class LogicalFallacy {
     public string $suggestedRewrite;
 
     /**
+     * How serious this finding is: 1 minor, 2 clear, 3 severe, 4 extreme (0 if the server did not supply it).
+     * A site relaxed about this kind of problem is not sent severity-1 findings.
+     * Constraints: ge=1, le=4
+     */
+    public int $severity;
+
+    /**
      * LogicalFallacy constructor.
      * @param array $data The JSON data from the API
      */
@@ -53,5 +60,6 @@ class LogicalFallacy {
         $this->quotedLogicalFallacyExample = $data['quoted_logical_fallacy_example'] ?? '';
         $this->explanation = $data['explanation'] ?? '';
         $this->suggestedRewrite = $data['suggested_rewrite'] ?? '';
+        $this->severity = $data['severity'] ?? 0;
     }
 }

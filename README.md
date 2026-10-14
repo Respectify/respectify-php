@@ -24,6 +24,117 @@ $client->perspective()->analyzeComment([
 $client->run();
 ```
 
+### Comment health and moderation tolerances
+
+Comment health is made of ten items: nine categories of problem (`threat`, `identity_attack`, `sexual_content`,
+`harassment`, `insult`, `profanity`, `dismissive_tone`, `logical_fallacy`, `low_effort`) and `quality`. Each item has a
+level: `off`, `permissive`, `relaxed`, `standard` (the default), `strict` or `zero_tolerance`. Nothing is saved on the API key: pass a
+`ModerationTolerances` as the last argument of `evaluateComment()` or `megacall()` on every call. Items you do not name
+are `standard`; only the items you name are sent.
+
+Each item that is not `off` gets a score from 1 to 5. For a problem category, 5 means nothing was found; otherwise it
+is the worst finding (minor 4, clear 3, severe 2, extreme 1). For `quality`, it is the quality score. Each level sets the lowest
+score accepted:
+
+| Level | Problem category | Quality |
+|---|---|---|
+| `off` | not scored, not coached, not counted | not scored |
+| `permissive` | 2 (filters only the very worst: minor, clear and severe findings accepted) | 2 |
+| `relaxed` | 3 (minor and clear findings accepted) | 2 |
+| `standard` | 4 (minor findings accepted) | 3 |
+| `strict` | 5 (no findings accepted) | 4 |
+| `zero_tolerance` | 5 (no findings accepted, and any hint gets a full assessment) | 5 |
+
+Quality has only four distinct minimums, so `permissive` and `relaxed` share 2 there.
+
+`threat`, `identity_attack`, `sexual_content` and `harassment` are floored: they can be made stricter but never
+`permissive`, `relaxed` or `off`, and accept no finding at any level. `ModerationTolerances` rejects a floor violation (and any unknown
+item or level) with a `BadRequestException` when it is constructed, so an invalid request is never sent.
+`HealthItem::allowedLevels()` lists the levels an item accepts, for building a settings UI.
+
+Use `CommentScore::$exceedsTolerance` to decide whether to act on a comment: it is true when any item scores below its
+minimum, or the comment is severely toxic. The response also has:
+
+- `healthItems`: each item that is not off, by name, as a `HealthItemScore` with `score`, `minimum` and `isAcceptable`.
+  The raw quality score is `$score->healthItems['quality']->score`.
+- `healthScore`: comment health, 1.0 to 5.0 (the geometric mean of the quality score and the worst problem item's
+  score). `null` when every item is off.
+- `overallScore`: comment health rounded to an integer, 1 to 5.
+
+Older servers send neither `healthItems` nor `healthScore`; they read as `[]` and `null`. Findings an item accepts are
+removed from the response. `toxicityScore` is not adjusted for tolerances. Each objectionable or negative tone phrase
+also has a `category` and a `severity` (1 minor, 2 clear, 3 severe, 4 extreme), and each logical fallacy has a
+`severity`. Severe is a slur or dehumanising language, a threat, sexual harassment, urging self-harm or sustained
+abuse; extreme is the same at full force, and no level accepts it.
+
+```php
+use Respectify\Moderation\HealthItem;
+use Respectify\Moderation\ModerationCategory;
+use Respectify\Moderation\ModerationTolerances;
+use Respectify\Moderation\ToleranceLevel;
+
+$tolerances = new ModerationTolerances([
+    ModerationCategory::PROFANITY => ToleranceLevel::RELAXED,
+    ModerationCategory::LOGICAL_FALLACY => ToleranceLevel::OFF,
+    ModerationCategory::THREAT => ToleranceLevel::ZERO_TOLERANCE,
+    HealthItem::QUALITY => ToleranceLevel::STRICT,
+]);
+
+$client->evaluateComment($articleId, $comment, null, $tolerances)->then(function ($score) {
+    if ($score->exceedsTolerance) {
+        foreach ($score->healthItems as $item => $result) {
+            if (!$result->isAcceptable) {
+                echo $item . ': ' . $result->score . ' (needs ' . $result->minimum . ")\n";
+            }
+        }
+    }
+});
+
+$client->run();
+```
+
+### Spam: spam, suspected spam, or neither
+
+`checkSpam()` and `megacall()` (with the `'spam'` service, as `$result->spamCheck`) return a `SpamDetectionResult`
+with one of three outcomes:
+
+- `isSpam` true: spam. Delete or trash the comment.
+- `suspectedSpam` true (and `isSpam` false): it looks like spam but is not certain. Do not delete it: send it back to
+  the commenter with `suggestion` (for example "This looks like spam. How about removing the link?"), the way you would
+  a comment that needs revising for comment health. A real person will fix it; a spammer won't bother.
+- Neither: not spam. Publish it.
+
+`suggestion` is empty unless `suspectedSpam` is true. A suspected comment is not spam, so in `megacall()` the other
+checks still run for it and are returned as usual. Older servers send neither field; they read as `false` and `''`.
+
+```php
+$client->checkSpam($comment, $articleId)->then(function ($spam) {
+    if ($spam->isSpam) {
+        // delete it
+    } elseif ($spam->suspectedSpam) {
+        // send it back to the commenter, showing $spam->suggestion
+    } else {
+        // publish it
+    }
+});
+
+$client->run();
+```
+
+### Errors and logging
+
+API failures reject the promise with a `RespectifyException` subclass (`BadRequestException`, `UnauthorizedException`,
+`PaymentRequiredException`, `ServerException`, `JsonDecodingException`, and so on).
+
+`getMessage()` is safe to log. When the library builds a message from an API response, the message carries only the
+kind of error, the HTTP status, the server's error title, and the server's error description when that description is
+one of Respectify's known fixed strings, for example `Unauthorized (HTTP 401): Authentication failed - Invalid user ID
+or API key.`. It never contains a raw response body, an excerpt of JSON that failed to decode, or anything the server
+echoed back from the request. That matters because responses can contain the user's comment text.
+
+If you need the full detail while debugging, `getResponseData()` returns the parsed error JSON and `getResponseBody()`
+returns the raw body. Both may contain user content: do not log them, store them, or show them to other users.
+
 ## Developing
 
 To be able to make changes:

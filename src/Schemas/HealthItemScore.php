@@ -20,32 +20,34 @@
 namespace Respectify\Schemas;
 
 /**
- * A specific signal indicating LLM-generated text.
+ * One comment-health item: how the comment scored on it, and the lowest score the site accepts.
  */
-class LlmDetectionSignal {
+class HealthItemScore {
 
     /**
-     * Category: 'word_frequency', 'structural', 'stylistic', 'epistemic'
+     * 5 means nothing found. For a category: minor finding 4, clear 3, severe 2, extreme 1. For quality: the quality score.
+     * Constraints: ge=1, le=5
      */
-    public string $signalType;
+    public int $score;
 
     /**
-     * What was detected
+     * The lowest score this item's level accepts
+     * Constraints: ge=1, le=5
      */
-    public string $description;
+    public int $minimum;
 
     /**
-     * The text that triggered this signal, if applicable
+     * Whether score is at or above minimum
      */
-    public string $quotedText;
+    public bool $isAcceptable;
 
     /**
-     * LlmDetectionSignal constructor.
+     * HealthItemScore constructor.
      * @param array $data The JSON data from the API
      */
     public function __construct(array $data) {
-        $this->signalType = $data['signal_type'] ?? '';
-        $this->description = $data['description'] ?? '';
-        $this->quotedText = $data['quoted_text'] ?? '';
+        $this->score = $data['score'] ?? 0;
+        $this->minimum = $data['minimum'] ?? 0;
+        $this->isAcceptable = $data['is_acceptable'] ?? false;
     }
 }

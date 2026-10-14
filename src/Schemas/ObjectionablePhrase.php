@@ -40,6 +40,20 @@ class ObjectionablePhrase {
     public string $suggestedRewrite;
 
     /**
+     * What kind of problem the phrase is: one of the ModerationCategory::FINDING_CATEGORIES values
+     * (threat, identity_attack, sexual_content, harassment, insult, profanity, dismissive_tone).
+     * Empty if the server did not supply it.
+     */
+    public string $category;
+
+    /**
+     * How serious this finding is: 1 minor, 2 clear, 3 severe, 4 extreme (0 if the server did not supply it).
+     * A site relaxed about this kind of problem is not sent severity-1 findings.
+     * Constraints: ge=1, le=4
+     */
+    public int $severity;
+
+    /**
      * ObjectionablePhrase constructor.
      * @param array $data The JSON data from the API
      */
@@ -47,5 +61,7 @@ class ObjectionablePhrase {
         $this->quotedObjectionablePhrase = $data['quoted_objectionable_phrase'] ?? '';
         $this->explanation = $data['explanation'] ?? '';
         $this->suggestedRewrite = $data['suggested_rewrite'] ?? '';
+        $this->category = $data['category'] ?? '';
+        $this->severity = $data['severity'] ?? 0;
     }
 }

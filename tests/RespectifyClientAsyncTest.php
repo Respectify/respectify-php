@@ -11,6 +11,10 @@ use Respectify\Schemas\CommentRelevanceResult;
 use Respectify\Schemas\DogwhistleResult;
 use Respectify\Schemas\MegaCallResult;
 use Respectify\Schemas\PerspectiveAnalyzeCommentResponse;
+use Respectify\Moderation\ModerationCategory;
+use Respectify\Moderation\HealthItem;
+use Respectify\Moderation\ModerationTolerances;
+use Respectify\Moderation\ToleranceLevel;
 use Respectify\Exceptions\BadRequestException;
 use Respectify\Exceptions\UnauthorizedException;
 use Respectify\Exceptions\PaymentRequiredException;
@@ -149,6 +153,44 @@ class RespectifyClientAsyncTest extends TestCase {
             $this->assertInstanceOf(CommentScore::class, $commentScore);
             $this->assertTrue($commentScore->overallScore <= 2); // Real-world result will be 1 or 2
             $assertionCalled = true;
+        });
+
+        $this->client->run();
+
+        $this->assertTrue($assertionCalled, 'Assertions in the promise were not called');
+    }
+
+    public function testEvaluateCommentWithTolerancesSuccess() {
+        $tolerances = new ModerationTolerances([
+            ModerationCategory::INSULT => ToleranceLevel::STRICT,
+            ModerationCategory::PROFANITY => ToleranceLevel::RELAXED,
+            ModerationCategory::LOGICAL_FALLACY => ToleranceLevel::OFF,
+            HealthItem::QUALITY => ToleranceLevel::STRICT,
+        ]);
+        $promise = $this->client->evaluateComment(
+            $this->testArticleId,
+            'This is a test comment',
+            null,
+            $tolerances
+        );
+        $assertionCalled = false;
+
+        $promise->then(function ($commentScore) use (&$assertionCalled) {
+            $this->assertInstanceOf(CommentScore::class, $commentScore);
+            $this->assertIsBool($commentScore->exceedsTolerance);
+            // The levels sent are reported back in the tolerances the score was judged under
+            $this->assertSame('strict', $commentScore->tolerances->levelFor(ModerationCategory::INSULT));
+            $this->assertSame('relaxed', $commentScore->tolerances->levelFor(ModerationCategory::PROFANITY));
+            $this->assertSame('strict', $commentScore->tolerances->levelFor(HealthItem::QUALITY));
+            $this->assertCount(10, $commentScore->tolerances->toArray(), 'The server reports all ten health items');
+            // Items not turned off are scored; logical_fallacy was turned off
+            $this->assertArrayHasKey(HealthItem::QUALITY, $commentScore->healthItems);
+            $this->assertArrayNotHasKey(ModerationCategory::LOGICAL_FALLACY, $commentScore->healthItems);
+            $this->assertSame(4, $commentScore->healthItems[HealthItem::QUALITY]->minimum, 'Strict quality accepts 4 and above');
+            $this->assertNotNull($commentScore->healthScore);
+            $assertionCalled = true;
+        }, function ($error) {
+            $this->fail('evaluateComment with tolerances failed with real API: ' . get_class($error) . ': ' . $error->getMessage());
         });
 
         $this->client->run();

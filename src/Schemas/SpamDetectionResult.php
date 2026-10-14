@@ -20,7 +20,7 @@
 namespace Respectify\Schemas;
 
 /**
- * Represents the result of spam detection analysis.
+ * The spam verdict: spam (delete it), suspected spam (send it back with the suggestion), or neither (publish it).
  */
 class SpamDetectionResult {
 
@@ -41,6 +41,16 @@ class SpamDetectionResult {
     public float $confidence;
 
     /**
+     * Looks like spam but is not certain: send the comment back to its writer with the suggestion instead of deleting it. Always false when is_spam is true
+     */
+    public bool $suspectedSpam;
+
+    /**
+     * What to tell the writer of a suspected-spam comment, e.g. to remove a link. Empty unless suspected_spam is true
+     */
+    public string $suggestion;
+
+    /**
      * SpamDetectionResult constructor.
      * @param array $data The JSON data from the API
      */
@@ -48,5 +58,7 @@ class SpamDetectionResult {
         $this->reasoning = $data['reasoning'] ?? '';
         $this->isSpam = $data['is_spam'] ?? false;
         $this->confidence = floatval($data['confidence'] ?? 0.0);
+        $this->suspectedSpam = $data['suspected_spam'] ?? false;
+        $this->suggestion = $data['suggestion'] ?? '';
     }
 }
