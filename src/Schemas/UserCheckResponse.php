@@ -20,7 +20,10 @@
 namespace Respectify\Schemas;
 
 /**
- * Response from the usercheck endpoint containing subscription status.
+ * Response from the usercheck endpoint describing the account's credit balance.
+ *
+ * Respectify bills each API call against a prepaid credit balance; there are no
+ * subscriptions or plans. The usercheck call itself is free.
  *
  * This is returned directly as the API response - no wrapper needed since
  * HTTP 200 indicates success and HTTP 4xx indicates errors.
@@ -28,32 +31,32 @@ namespace Respectify\Schemas;
 class UserCheckResponse {
 
     /**
-     * Whether the subscription is active
+     * Whether the account can make paid calls: true when the credit balance is above $0, false when it is $0 or less or the balance could not be read
      */
     public bool $active;
 
     /**
-     * Current subscription status
+     * Account status: 'active' when the balance is above $0, 'no_credit' when it is $0 or less; null if the balance could not be read
      */
     public ?string $status;
 
     /**
-     * Subscription expiration date
+     * Always null: credit balances do not expire. Kept for backward compatibility
      */
     public ?string $expires;
 
     /**
-     * Name of the subscription plan (e.g., 'Personal', 'Professional', 'Anti-Spam Only')
+     * The current credit balance as text, e.g. 'Credit Balance: $12.34'; null if the balance could not be read
      */
     public ?string $planName;
 
     /**
-     * List of API endpoints allowed for this plan (e.g., ['antispam', 'commentscore'])
+     * Always null: every endpoint is available while the balance covers the call's price. Kept for backward compatibility
      */
     public ?array $allowedEndpoints;
 
     /**
-     * Error message if subscription check failed
+     * Error message if the balance could not be read, e.g. 'Unable to determine account status'; null otherwise
      */
     public ?string $error;
 
